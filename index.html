@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#05030f" />
+  <title>銀河はぐれ団</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Three.js を最初から導入（CDN / importmap） -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- スマホ縦画面のゲーム枠 -->
+  <div id="game">
+
+    <!-- ============ タイトル画面 ============ -->
+    <section id="screen-title" class="screen active">
+      <div class="title-bg"></div>
+      <div class="title-inner">
+        <h1 class="game-title">銀河はぐれ団</h1>
+        <p class="game-subtitle">- GINGA HAGUREDAN -</p>
+        <div class="title-menu">
+          <button class="btn btn-primary" data-action="start-game">はじめる</button>
+          <button class="btn" data-action="open-dex-title">図鑑</button>
+          <button class="btn btn-ghost" data-action="reset-save">データ消去</button>
+        </div>
+        <p class="title-hint">タップしてはじめよう</p>
+      </div>
+    </section>
+
+    <!-- ============ ワールドマップ ============ -->
+    <section id="screen-worldmap" class="screen">
+      <header class="topbar">
+        <span class="crystal-counter">💎 <b id="wm-crystals">0</b></span>
+        <span class="topbar-title">ワールドマップ</span>
+        <button class="btn-icon" data-action="open-dex-map">📖</button>
+      </header>
+      <div id="worldmap-space"></div>
+      <div class="worldmap-overlay">
+        <div id="star-list" class="star-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ Three.js 宇宙シューティング ============ -->
+    <section id="screen-shooting" class="screen">
+      <div id="shooting-canvas"></div>
+      <div class="shooting-hud">
+        <div class="hud-row">
+          <span>💎 <b id="sh-crystals">0</b></span>
+          <span>⏱ <b id="sh-timer">30</b></span>
+          <span>❤ <b id="sh-hp">3</b></span>
+        </div>
+        <div class="hud-progress"><div id="sh-progress"></div></div>
+        <div class="mission-banner" id="mission-banner"></div>
+      </div>
+      <div class="shooting-hint" id="shooting-hint">ドラッグで上下左右に移動 / 攻撃は自動</div>
+    </section>
+
+    <!-- ============ シューティング結果 ============ -->
+    <section id="screen-result" class="screen">
+      <div class="result-inner">
+        <h2 class="result-title" id="result-title">航行 結果</h2>
+        <div class="result-stats" id="result-stats"></div>
+        <div class="result-mission" id="result-mission"></div>
+        <div class="result-bonus" id="result-bonus"></div>
+        <button class="btn btn-primary" data-action="result-next">次へ</button>
+      </div>
+    </section>
+
+    <!-- ============ RPG戦闘 ============ -->
+    <section id="screen-battle" class="screen">
+      <div class="battle-field">
+        <div class="enemy-area">
+          <div id="battle-enemy" class="battle-enemy">
+            <div class="enemy-sprite" id="enemy-sprite">👾</div>
+            <div class="enemy-name" id="enemy-name">エイリアン</div>
+            <div class="hpbar enemy-hpbar"><div id="enemy-hp-fill"></div></div>
+          </div>
+        </div>
+        <div class="party-area" id="party-area"></div>
+      </div>
+      <div class="battle-ui">
+        <div class="battle-log" id="battle-log"></div>
+        <div class="battle-commands" id="battle-commands">
+          <button class="btn cmd" data-cmd="fight">たたかう</button>
+          <button class="btn cmd" data-cmd="skill">スキル</button>
+          <button class="btn cmd" data-cmd="item">どうぐ</button>
+          <button class="btn cmd" data-cmd="run">にげる</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ スカウト（戦闘勝利後の仲間候補イベント） ============ -->
+    <section id="screen-scout" class="screen">
+      <div class="scout-inner">
+        <h2 class="scout-title" id="scout-title">仲間候補があらわれた！</h2>
+        <div id="scout-result" class="scout-result"></div>
+        <div id="scout-actions" class="scout-actions"></div>
+      </div>
+    </section>
+
+    <!-- ============ 図鑑 ============ -->
+    <section id="screen-dex" class="screen">
+      <header class="topbar">
+        <button class="btn-icon" data-action="close-dex">←</button>
+        <span class="topbar-title">なかま図鑑</span>
+        <span class="dex-count"><b id="dex-count">0</b> / <span id="dex-total">0</span></span>
+      </header>
+      <div id="dex-grid" class="dex-grid"></div>
+    </section>
+
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

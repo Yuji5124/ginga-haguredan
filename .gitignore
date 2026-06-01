@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+
+# node (serve 等を使う場合)
+node_modules/
+npm-debug.log*
