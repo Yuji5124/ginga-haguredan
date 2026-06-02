@@ -1458,8 +1458,16 @@ function startShooting(star) {
   updateShootingHUD();
   updateMissionHUD();
   updateArcadeHUD();
+  clearFlightFeedback();
   bindBomb();
-  if (spareEnergy) setTimeout(() => spawnPopup("予備エネルギー HP+1", "#7dffa0"), 250);
+  if (spareEnergy) {
+    setTimeout(() => {
+      spawnPopup("予備エネルギー HP+1", "#7dffa0", { type: "heal" });
+      showFlightNotice("START HP+1", "heal");
+      pushFlightEvent("予備エネルギー HP+1", "heal");
+      pulseHud("sh-hp", "get");
+    }, 250);
+  }
 
   const hint = document.getElementById("shooting-hint");
   hint.style.opacity = "1";
@@ -1536,12 +1544,12 @@ function updateShooting(dt, now) {
     if (hitShip(o)) { damageShip(o.userData.dmg, true); SH.scene.remove(o); SH.rocks.splice(i, 1); continue; }
     if (o.position.y < FLIGHT_DESPAWN_Y) { SH.scene.remove(o); SH.rocks.splice(i, 1); }
   }
-  // クリスタル（通常 +5 / 大 +20 / 回復 HP+1）
+  // クリスタル（通常 +1〜2 / 大 +8〜10 / 回復 HP+1）
   for (let i = SH.crystals.length - 1; i >= 0; i--) {
     const o = SH.crystals[i];
     o.position.y -= speed * 0.92 * dt;
     o.rotation.y += 0.08; o.rotation.z += 0.035;
-    if (hitShip(o)) { collectCrystal(o.userData.kind); SH.scene.remove(o); SH.crystals.splice(i, 1); continue; }
+    if (hitShip(o)) { collectCrystal(o.userData.kind, o.position); SH.scene.remove(o); SH.crystals.splice(i, 1); continue; }
     if (o.position.y < FLIGHT_DESPAWN_Y) { SH.scene.remove(o); SH.crystals.splice(i, 1); }
   }
   // 敵（ペンペンがいると接近スピード低下）
@@ -1556,9 +1564,14 @@ function updateShooting(dt, now) {
         e.userData.hp--;
         if (e.userData.hp <= 0) {
           // 撃破ボーナスは小さく。航行効果があると +1 ずつ上乗せ
-          SH.gained += 1 + SH.nav.killBonus; SH.kills++; bumpMission("kill");
+          const killAmt = 1 + SH.nav.killBonus;
+          SH.gained += killAmt; SH.kills++; bumpMission("kill");
           addScore(300); bumpChain(performance.now());
-          flashScreen("#ffd070"); spawnPopup("💥", "#ffcf66"); // 撃破の小演出
+          flashScreen("#ffd070");
+          spawnPopup(`撃破 +${killAmt}💎`, "#ffcf66", { at: e.position, type: "kill" });
+          showFlightNotice(`ENEMY DOWN +${killAmt}💎`, "kill");
+          pushFlightEvent(`敵撃破 +${killAmt}💎`, "kill");
+          pulseHud("sh-crystals", "get");
           updateShootingHUD();
           SH.scene.remove(e); SH.enemies.splice(i, 1);
         }
@@ -1606,6 +1619,8 @@ function useBomb() {
   SH.enemies.forEach(e => { SH.scene.remove(e); SH.kills++; bumpMission("kill"); addScore(150); });
   SH.rocks = []; SH.enemies = [];
   flashScreen("#ffffff");
+  showFlightNotice("BOMB CLEAR", "kill");
+  pushFlightEvent("ボムで画面一掃", "kill");
   if (navigator.vibrate) navigator.vibrate(120);
   updateArcadeHUD();
 }
@@ -1618,14 +1633,22 @@ function damageShip(amount = 1, isRock = false) {
   if (performance.now() < SH.invulnUntil) return;
   // おばけ：隕石ダメージを低確率で無効化
   if (isRock && SH.nav.rockGuardChance > 0 && Math.random() < SH.nav.rockGuardChance) {
-    flashScreen("#9cf"); spawnPopup("ガード！", "#9cf"); return;
+    flashScreen("#9cf");
+    spawnPopup("GUARD", "#9cf", { type: "guard" });
+    showFlightNotice("GUARD", "guard");
+    pushFlightEvent("隕石ダメージ無効", "guard");
+    return;
   }
   // タコすけ：開始時バリアで1回ぶん肩代わり
   if (SH.shieldLeft > 0) {
     SH.shieldLeft--;
-    flashScreen("#9cf"); spawnPopup("バリア！", "#9cf");
+    flashScreen("#9cf");
+    spawnPopup("BARRIER", "#9cf", { type: "guard" });
+    showFlightNotice("BARRIER", "guard");
+    pushFlightEvent("バリアで被弾を防いだ", "guard");
     SH.invulnUntil = performance.now() + INVULN_MS;
     updateShootingHUD();
+    pulseHud("sh-hp", "get");
     return;
   }
   SH.hp = Math.max(0, SH.hp - amount);
@@ -1633,8 +1656,12 @@ function damageShip(amount = 1, isRock = false) {
   SH.dmgTaken += amount;
   SH.chain = 0; // 被弾でチェイン途切れ
   SH.invulnUntil = performance.now() + INVULN_MS; // 0.8秒の無敵
-  spawnPopup(`-${amount}❤`, "#f66");
+  spawnPopup(`DAMAGE -${amount}HP`, "#ff6677", { type: "damage" });
+  showFlightNotice(`DAMAGE -${amount}HP`, "damage");
+  pushFlightEvent(`被弾 -${amount}HP`, "damage");
+  pulseHud("sh-hp", "damage");
   showHitRing();
+  shakeShootingScreen();
   // ノーダメージ系ミッションは被弾で失敗
   if (SH.mission && SH.mission.type === "nohit" && !SH.missionDone) SH.missionFailed = true;
   flashScreen("#f55");
@@ -1643,18 +1670,78 @@ function damageShip(amount = 1, isRock = false) {
   updateMissionHUD();
 }
 
-// 取得/被弾ポップ（飛行船付近に浮かぶ）
-function spawnPopup(text, color) {
+let flightNoticeTimer = null;
+
+function worldToHudPoint(pos) {
+  const host = document.getElementById("shooting-canvas");
+  if (!host || !pos) return null;
+  const w = host.clientWidth || 1;
+  const h = host.clientHeight || 1;
+  const x = ((pos.x + FLIGHT_X_LIMIT) / (FLIGHT_X_LIMIT * 2)) * w;
+  const y = (1 - (pos.y - FLIGHT_DESPAWN_Y) / (FLIGHT_SPAWN_Y - FLIGHT_DESPAWN_Y)) * h;
+  return { x: clamp(x, 24, w - 24), y: clamp(y, 56, h - 80) };
+}
+
+function showFlightNotice(text, type = "get") {
+  const el = document.getElementById("sh-center-notice");
+  if (!el) return;
+  clearTimeout(flightNoticeTimer);
+  el.textContent = text;
+  el.className = `sh-center-notice ${type}`;
+  void el.offsetWidth;
+  el.classList.add("show");
+  flightNoticeTimer = setTimeout(() => el.classList.remove("show"), 850);
+}
+
+function pushFlightEvent(text, type = "get") {
+  const feed = document.getElementById("sh-event-feed");
+  if (!feed) return;
+  const row = document.createElement("div");
+  row.className = `sh-feed-row ${type}`;
+  row.textContent = text;
+  feed.prepend(row);
+  while (feed.childElementCount > 5) feed.removeChild(feed.lastChild);
+  setTimeout(() => row.remove(), 3200);
+}
+
+function pulseHud(id, type = "get") {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cls = type === "damage" ? "hud-pulse-damage" : "hud-pulse-get";
+  el.classList.remove("hud-pulse-get", "hud-pulse-damage");
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), 260);
+}
+
+function clearFlightFeedback() {
+  document.getElementById("sh-event-feed")?.replaceChildren();
+  const notice = document.getElementById("sh-center-notice");
+  if (notice) {
+    notice.textContent = "";
+    notice.className = "sh-center-notice";
+  }
+}
+
+// 取得/被弾ポップ（イベント位置または飛行船付近に浮かぶ）
+function spawnPopup(text, color, opts = {}) {
   const host = document.getElementById("shooting-canvas");
   if (!host) return;
   const el = document.createElement("div");
-  el.className = "sh-popup";
+  el.className = `sh-popup ${opts.type || ""}`;
   el.textContent = text;
   el.style.color = color;
-  el.style.left = (45 + Math.random() * 10) + "%";
-  el.style.bottom = (24 + Math.random() * 8) + "%";
+  const p = worldToHudPoint(opts.at);
+  if (p) {
+    el.style.left = `${p.x}px`;
+    el.style.top = `${p.y}px`;
+  } else {
+    el.classList.add("screen-pop");
+    el.style.left = (45 + Math.random() * 10) + "%";
+    el.style.bottom = (24 + Math.random() * 8) + "%";
+  }
   host.appendChild(el);
-  setTimeout(() => el.remove(), 900);
+  setTimeout(() => el.remove(), 1100);
 }
 // 当たり判定が分かる円形エフェクト
 function showHitRing() {
@@ -1666,23 +1753,48 @@ function showHitRing() {
   setTimeout(() => r.remove(), 500);
 }
 
+function shakeShootingScreen() {
+  const screen = document.getElementById("screen-shooting");
+  if (!screen) return;
+  screen.classList.remove("sh-damage-shake");
+  void screen.offsetWidth;
+  screen.classList.add("sh-damage-shake");
+  setTimeout(() => screen.classList.remove("sh-damage-shake"), 260);
+}
+
 // クリスタル取得（種類ごとに効果。航行ボーナスで獲得量を少し底上げ）
-function collectCrystal(kind) {
+function collectCrystal(kind, origin = null) {
   const mul = SH.nav.crystalMul;
   const now = performance.now();
   if (kind === "big") {
     const amt = Math.round((randInt(CRYSTAL_BIG_MIN, CRYSTAL_BIG_MAX) + SH.nav.bigBonus) * mul); SH.gained += amt; SH.bigPicked++;
     bumpMission("big"); bumpMission("crystal");
     addScore(500); bumpChain(now);
-    spawnPopup(`+${amt}💎`, "#ffd35a");
+    spawnPopup(`BIG +${amt}💎`, "#ffd35a", { at: origin, type: "big" });
+    showFlightNotice(`BIG CRYSTAL +${amt}💎`, "big");
+    pushFlightEvent(`大クリスタル +${amt}💎`, "big");
+    pulseHud("sh-crystals", "get");
   } else if (kind === "heal") {
-    if (SH.hp < SH.maxHp) { SH.hp++; flashScreen("#6f9"); spawnPopup("HP+1", "#7dffa0"); }
-    else spawnPopup("HP満タン", "#7dffa0");
+    if (SH.hp < SH.maxHp) {
+      SH.hp++;
+      flashScreen("#6f9");
+      spawnPopup("RECOVER HP+1", "#7dffa0", { at: origin, type: "heal" });
+      showFlightNotice("RECOVER HP+1", "heal");
+      pushFlightEvent("回復クリスタル HP+1", "heal");
+      pulseHud("sh-hp", "get");
+    } else {
+      spawnPopup("HP FULL", "#7dffa0", { at: origin, type: "heal" });
+      showFlightNotice("HP FULL", "heal");
+      pushFlightEvent("回復クリスタル HP満タン", "heal");
+    }
     addScore(50); bumpChain(now);
   } else {
     const amt = Math.max(1, Math.round(randInt(CRYSTAL_NORMAL_MIN, CRYSTAL_NORMAL_MAX) * mul)); SH.gained += amt; bumpMission("crystal");
     addScore(100); bumpChain(now);
-    spawnPopup(`+${amt}💎`, "#8fe8ff");
+    spawnPopup(`+${amt}💎`, "#8fe8ff", { at: origin, type: "get" });
+    showFlightNotice(`CRYSTAL +${amt}💎`, "get");
+    pushFlightEvent(`クリスタル +${amt}💎`, "get");
+    pulseHud("sh-crystals", "get");
   }
   updateShootingHUD();
 }
