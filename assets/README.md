@@ -22,6 +22,24 @@
 | タイトル主人公 | 768×1024 | `assets/title/<name>.png` |
 | UI / シューティング素材 | 任意 | `assets/ui/` `assets/shooting/` |
 
+## 実装済みの差し替えスロット（PNGを置けば自動で表示／無ければ従来表示）
+
+| 画面 | 役割 | ファイル |
+|------|------|----------|
+| タイトル | 背景 | `assets/backgrounds/title_space_vertical.png` |
+| タイトル | ロゴ | `assets/logo/logo_main.png` |
+| タイトル | 主人公 | `assets/title/hero_main.png` |
+| タイトル | 飛行船 | `assets/ships/ship_default.png` |
+| ワールドマップ | 飛行船 | `assets/ships/ship_default.png` |
+| RPG戦闘 / スカウト / 図鑑 | 仲間キャラ | `assets/characters/c1.png` … `c100.png` |
+| ラスボス戦 | ボス | `assets/enemies/final_boss.png` |
+| シューティング | 通常クリスタル | `assets/ui/crystal_normal.png` |
+| シューティング | 大クリスタル | `assets/ui/crystal_big.png` |
+| シューティング | 回復クリスタル | `assets/ui/crystal_heal.png` |
+
+> いずれも **PNGが無ければ従来のテキスト・絵文字・CSS/3D表示にフォールバック**します。
+> まずはこの一覧が差し替え対象。仲間100体全員分は後回し。
+
 ## ファイル名と読み込み規則
 
 - 仲間キャラのIDは `app.js` の `ALLIES`（`c1`〜`c100`）。

@@ -1362,3 +1362,33 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 #battle-commands .skill-member-btn small,
 #battle-commands .skill-use-btn small { display: block; font-size: 9px; color: #9ab; font-weight: 700; }
 .scout-replace-btn { font-size: 13px; }
+
+/* ===== PNGアセット差し替え（あれば表示・なければ従来のCSS/絵文字） ===== */
+/* 共通：スロット画像はデフォルト非表示。has-img で表示し、フォールバックを隠す */
+.asset-img { display: none; }
+/* タイトル背景PNG */
+.title-bg.has-bg-img { background-size: cover; background-position: center; }
+.title-bg.has-bg-img .stars-layer,
+.title-bg.has-bg-img .planet { opacity: 0; }
+/* ロゴPNG */
+.game-logo { position: relative; }
+.game-logo .asset-img { display: none; }
+.game-logo.has-img .logo-text { display: none; }
+.game-logo.has-img .asset-img { display: block; position: static; width: 100%; max-width: 320px; max-height: 130px; object-fit: contain; margin: 0 auto; }
+/* 飛行船PNG（タイトル） */
+.ship-character.has-img > :not(.asset-img) { opacity: 0; }
+.ship-character.has-img .asset-img { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+/* 主人公PNG（タイトル） */
+.weak-hero.has-img > :not(.asset-img) { opacity: 0; }
+.weak-hero.has-img .asset-img { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+/* ワールドマップの飛行船PNG（PNGがある時だけ表示） */
+.wm-ship { display: none; }
+.wm-ship.has-img { display: block; position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 42%; max-width: 220px; z-index: 2; pointer-events: none; filter: drop-shadow(0 4px 14px rgba(0,0,0,.5)); animation: wmShipFloat 4s ease-in-out infinite; }
+.wm-ship .asset-img { display: block; width: 100%; height: auto; }
+@keyframes wmShipFloat { 50% { transform: translateX(-50%) translateY(-8px); } }
+
+/* PNG表示時はフォールバックの図形背景・枠を消す */
+.ship-character.has-img, .weak-hero.has-img, .game-logo.has-img {
+  background: none !important; box-shadow: none !important; border: none !important;
+}
+.ship-character.has-img .ship-flag { display: none; }

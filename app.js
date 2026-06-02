@@ -778,6 +778,47 @@ function faceHTML(emoji, path) {
   return emoji;
 }
 
+// 装飾用PNGスロット：画像があれば表示しフォールバックを隠す（無ければ従来表示のまま）
+function setBgImage(selector, path) {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  const img = tryImage(path);
+  const apply = () => {
+    if (img.naturalWidth > 0) {
+      el.style.backgroundImage = `url(assets/${path}.png)`;
+      el.classList.add("has-bg-img");
+    }
+  };
+  if (img.complete) apply(); else img.addEventListener("load", apply, { once: true });
+}
+function setSlotImage(selector, paths) {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  const list = Array.isArray(paths) ? paths : [paths];
+  let done = false;
+  list.forEach(path => {
+    const img = tryImage(path);
+    const apply = () => {
+      if (done || img.naturalWidth <= 0) return;
+      done = true;
+      let slot = el.querySelector(":scope > .asset-img");
+      if (!slot) { slot = document.createElement("img"); slot.className = "asset-img"; slot.alt = ""; el.appendChild(slot); }
+      slot.src = `assets/${path}.png`;
+      el.classList.add("has-img");
+    };
+    if (img.complete) apply(); else img.addEventListener("load", apply, { once: true });
+  });
+}
+// 各画面の装飾PNGを反映（PNGが無ければ何もしない＝従来表示）
+function applyAssetImages() {
+  setBgImage(".title-bg", "backgrounds/title_space_vertical");
+  // ロゴは仕様の logo/ を優先、無ければ title/ も試す
+  setSlotImage(".game-logo", ["logo/logo_main", "title/logo_main"]);
+  setSlotImage(".ship-character", "ships/ship_default");
+  setSlotImage(".weak-hero", "title/hero_main");
+  setSlotImage(".wm-ship", "ships/ship_default");
+}
+
 // -------------------------------------------------------------
 // 画面管理
 // -------------------------------------------------------------
@@ -1585,26 +1626,38 @@ function spawnRock(red = false) {
   SH.scene.add(m); SH.rocks.push(m);
 }
 
+// クリスタルのPNGパス（あれば板ポリゴンにテクスチャ、無ければ従来の3D結晶）
+const CRYSTAL_IMG = { normal: "ui/crystal_normal", big: "ui/crystal_big", heal: "ui/crystal_heal" };
+function crystalTexture(kind) {
+  const path = CRYSTAL_IMG[kind] || CRYSTAL_IMG.normal;
+  const img = tryImage(path);
+  if (img.complete && img.naturalWidth > 0 && THREE.Texture) {
+    const t = new THREE.Texture(img); t.needsUpdate = true; return t;
+  }
+  return null;
+}
+
 // kind: "normal"(+1〜2💎) / "big"(+8〜10💎) / "heal"(HP+1)
 function spawnCrystal(kind = "normal") {
-  let geo, mat, r;
-  if (kind === "big") {
-    // 大クリスタル：金色・大きい（明確に別物）
-    geo = new THREE.OctahedronGeometry(1.35, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0xffd24a, emissive: 0xffae00, emissiveIntensity: 0.9, metalness: 0.6 });
-    r = 1.3;
+  const r = kind === "big" ? 1.3 : kind === "heal" ? 0.9 : 0.82;
+  let m;
+  const tex = crystalTexture(kind);
+  if (tex && THREE.PlaneGeometry) {
+    // PNGあり：カメラを向く板ポリゴンに貼る
+    m = new THREE.Mesh(
+      new THREE.PlaneGeometry(r * 2.2, r * 2.2),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+    );
+  } else if (kind === "big") {
+    m = new THREE.Mesh(new THREE.OctahedronGeometry(1.35, 0),
+      new THREE.MeshStandardMaterial({ color: 0xffd24a, emissive: 0xffae00, emissiveIntensity: 0.9, metalness: 0.6 }));
   } else if (kind === "heal") {
-    // 回復クリスタル：緑・ハート風（やや大きめ）
-    geo = new THREE.OctahedronGeometry(0.92, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0x55ff8c, emissive: 0x22dd66, emissiveIntensity: 0.9, metalness: 0.2 });
-    r = 0.9;
+    m = new THREE.Mesh(new THREE.OctahedronGeometry(0.92, 0),
+      new THREE.MeshStandardMaterial({ color: 0x55ff8c, emissive: 0x22dd66, emissiveIntensity: 0.9, metalness: 0.2 }));
   } else {
-    // 通常クリスタル：水色・しっかり光る
-    geo = new THREE.OctahedronGeometry(0.85, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0x7df0ff, emissive: 0x33c8ff, emissiveIntensity: 0.85, metalness: 0.4 });
-    r = 0.82;
+    m = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0),
+      new THREE.MeshStandardMaterial({ color: 0x7df0ff, emissive: 0x33c8ff, emissiveIntensity: 0.85, metalness: 0.4 }));
   }
-  const m = new THREE.Mesh(geo, mat);
   m.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
   m.userData = { type: "crystal", kind, r, hitR: r + 0.15 };
   SH.scene.add(m); SH.crystals.push(m);
@@ -2389,7 +2442,7 @@ function startBattle(star) {
 
   // 敵描画＋系統・ギミック・ボス表示
   document.getElementById("enemy-name").textContent = def.name;
-  document.getElementById("enemy-sprite").innerHTML = faceHTML(def.face, `enemies/${def.img}`);
+  document.getElementById("enemy-sprite").innerHTML = faceHTML(def.face, def.boss ? "enemies/final_boss" : `enemies/${def.img}`);
   const catEl = document.getElementById("enemy-cat");
   catEl.textContent = def.cat;
   catEl.className = "enemy-cat cat-" + (def.catKey || "");
@@ -3364,6 +3417,7 @@ window.addEventListener("resize", () => {
 // 起動
 // -------------------------------------------------------------
 show("title");
+applyAssetImages(); // 装飾PNGがあれば反映（無ければ従来のCSS/絵文字のまま）
 console.log("銀河はぐれ団 起動 ✦", save);
 
 // デバッグ用フック（コンソールから各シーンへ直接ジャンプ可能）
