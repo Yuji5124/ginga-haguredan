@@ -516,6 +516,7 @@ function show(name) {
 }
 
 function onEnter(name) {
+  if (name === "title") updateTitleSaveState();
   if (name === "worldmap") { startWorldmap(); renderStarList(); refreshCrystals(); }
   else { stopWorldmap(); }
   if (name === "dex") renderDex();
@@ -688,12 +689,34 @@ document.querySelector("#screen-intro").addEventListener("click", (e) => {
 // -------------------------------------------------------------
 // タイトル
 // -------------------------------------------------------------
+// セーブデータが存在するか（現行キー＋旧キー）
+function hasSavedGame() {
+  return !!(
+    localStorage.getItem(SAVE_KEY) ||
+    localStorage.getItem("gingaHaguredanSave") ||
+    localStorage.getItem("saveData")
+  );
+}
+
+function updateTitleSaveState() {
+  const hasStoredSave = hasSavedGame();
+  document.body.classList.toggle("has-save", hasStoredSave);
+  const continueButton = document.getElementById("continue-game-btn");
+  if (continueButton) {
+    continueButton.setAttribute("aria-disabled", String(!hasStoredSave));
+    continueButton.title = hasStoredSave ? "保存データから再開" : "保存データがありません";
+  }
+}
+
 document.querySelector("#screen-title").addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");
   if (!el) return;
   switch (el.dataset.action) {
     case "start-game":    startIntro(); break;
-    case "continue":      show("worldmap"); break;
+    case "continue":
+      if (hasSavedGame()) show("worldmap");
+      else toast("セーブデータがありません");
+      break;
     case "open-dex-title": dexReturn = "title"; show("dex"); break;
     case "party":          show("party"); break;
     case "settings":       show("settings"); break;

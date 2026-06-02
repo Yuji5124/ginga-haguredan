@@ -14,54 +14,78 @@
 
     <!-- ============ タイトル画面 ============ -->
     <section id="screen-title" class="screen active">
-      <div class="title-bg"></div>
-
-      <!-- 上部コーナー：お知らせ / プレゼント -->
-      <div class="title-top">
-        <button class="title-corner" data-action="news"><span class="tc-badge">3</span><span class="tc-icon">📢</span><small>お知らせ</small></button>
-        <button class="title-corner" data-action="gift"><span class="tc-badge">3</span><span class="tc-icon">🎁</span><small>プレゼント</small></button>
+      <div class="title-bg">
+        <div class="stars-layer"></div>
+        <div class="planet planet-main"></div>
+        <div class="planet planet-small"></div>
       </div>
 
-      <div class="title-inner">
-        <h1 class="game-title">銀河はぐれ団</h1>
+      <!-- 上部コーナー：お知らせ / プレゼント -->
+      <header class="title-header">
+        <button class="mini-button notice-button" data-action="news"><span class="tc-badge">3</span><span class="tc-icon">📢</span><small>お知らせ</small></button>
+        <button class="mini-button present-button" data-action="gift"><span class="tc-badge">3</span><span class="tc-icon">🎁</span><small>プレゼント</small></button>
+      </header>
 
-        <!-- ヒーロー：n‿n 顔の宇宙船 -->
-        <div class="title-hero">
+      <main class="title-main">
+        <h1 class="game-logo">銀河はぐれ団</h1>
+
+        <div class="hero-area">
           <div class="hero-compass">✦</div>
-          <div class="hero-ship">
+          <!-- 将来的に assets/ships/hagure_ship.png に差し替え予定 -->
+          <div class="ship-character" aria-label="4人乗りの小型飛行船">
             <span class="ship-flag">🚩</span>
-            <div class="ship-body">
-              <div class="ship-screen">
-                <span class="ship-eye">n</span><span class="ship-smile"></span><span class="ship-eye">n</span>
-              </div>
-              <span class="ship-port p1"></span><span class="ship-port p2"></span><span class="ship-port p3"></span>
+            <div class="ship-window">
+              <span class="ship-eye">n</span><span class="ship-smile"></span><span class="ship-eye">n</span>
             </div>
+            <span class="ship-light ship-light-left"></span>
+            <span class="ship-light ship-light-mid"></span>
+            <span class="ship-light ship-light-right"></span>
             <div class="ship-fin"></div>
+          </div>
+
+          <!-- 将来的に assets/characters/hero.png に差し替え予定 -->
+          <div class="weak-hero" aria-label="弱い主人公">
+            <div class="hero-head"></div>
+            <div class="hero-body"></div>
+            <div class="hero-bag"></div>
           </div>
         </div>
 
-        <!-- クルー紹介 -->
-        <div class="crew-note">仲間をスカウトして 図鑑に登録しよう！</div>
-        <div class="crew-strip">
-          <div class="crew-card"><div class="crew-face">🐶</div><div class="crew-name">ハチロー <b>⭐</b></div><div class="crew-role">パイロット見習い</div></div>
-          <div class="crew-card"><div class="crew-face">👧</div><div class="crew-name">モモ <b class="pink">★</b></div><div class="crew-role">メカニック</div></div>
-          <div class="crew-card"><div class="crew-face">🐱</div><div class="crew-name">ジロー <b>★</b></div><div class="crew-role">元・宇宙海賊</div></div>
-          <div class="crew-card"><div class="crew-face">🐸</div><div class="crew-name">ゲロ <b class="green">★</b></div><div class="crew-role">記録係</div></div>
+        <p class="scout-message">仲間をスカウトして 図鑑に登録しよう！</p>
+        <div class="starter-party">
+          <button class="party-card" type="button">
+            <!-- 将来的に assets/characters/hachiro_icon.png に差し替え予定 -->
+            <div class="party-icon">🐶</div><div class="party-name">ハチロー <b>⭐</b></div><div class="party-role">パイロット見習い</div>
+          </button>
+          <button class="party-card" type="button">
+            <!-- 将来的に assets/characters/momo_icon.png に差し替え予定 -->
+            <div class="party-icon">👧</div><div class="party-name">モモ <b class="pink">★</b></div><div class="party-role">メカニック</div>
+          </button>
+          <button class="party-card" type="button">
+            <!-- 将来的に assets/characters/jiro_icon.png に差し替え予定 -->
+            <div class="party-icon">🐱</div><div class="party-name">ジロー <b>★</b></div><div class="party-role">元・宇宙海賊</div>
+          </button>
+          <button class="party-card" type="button">
+            <!-- 将来的に assets/characters/gero_icon.png に差し替え予定 -->
+            <div class="party-icon">🐸</div><div class="party-name">ゲロ <b class="green">★</b></div><div class="party-role">記録係</div>
+          </button>
         </div>
 
         <!-- メニュー -->
-        <div class="title-menu">
-          <button class="btn btn-start" data-action="start-game"><span>🚀</span> スタート</button>
-          <button class="btn btn-continue" data-action="continue"><span>🗒️</span> つづきから</button>
-          <div class="title-subrow">
-            <button class="btn sub" data-action="open-dex-title">📖 図鑑</button>
-            <button class="btn sub" data-action="party">👥 パーティ</button>
-            <button class="btn sub" data-action="settings">⚙️ 設定</button>
-          </div>
+        <div class="main-actions">
+          <button class="btn primary-button" id="start-game-btn" data-action="start-game"><span>🚀</span> スタート</button>
+          <button class="btn secondary-button" id="continue-game-btn" data-action="continue"><span>🗒️</span> つづきから</button>
         </div>
+        <nav class="title-menu">
+          <div class="title-subrow">
+            <button class="btn menu-button" data-action="open-dex-title">📖 図鑑</button>
+            <button class="btn menu-button" data-action="party">👥 パーティ</button>
+            <button class="btn menu-button" data-action="settings">⚙️ 設定</button>
+          </div>
+        </nav>
 
         <!-- 冒険の流れ -->
-        <div class="flow-bar">
+        <div class="adventure-flow">
           <div class="flow-title">✦ 冒険の流れ ✦</div>
           <div class="flow-steps">
             <span class="flow-step">🚀<small>シューティング</small></span>
@@ -73,8 +97,8 @@
             <span class="flow-step">📖<small>図鑑登録</small></span>
           </div>
         </div>
-      </div>
-      <div class="title-ver">Ver.1.0.0</div>
+      </main>
+      <footer class="title-footer">Ver.1.0.0</footer>
     </section>
 
     <!-- ============ オープニング ============ -->

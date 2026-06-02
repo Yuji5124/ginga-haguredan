@@ -98,129 +98,362 @@ html, body {
 .dex-count { font-size: 14px; color: var(--gold); }
 
 /* ===== タイトル ===== */
+#screen-title {
+  overflow: hidden;
+  background: #05030f;
+}
 .title-bg {
-  position: absolute; inset: 0;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
   background:
-    radial-gradient(circle at 30% 20%, rgba(120,90,255,.35), transparent 50%),
-    radial-gradient(circle at 75% 70%, rgba(0,200,255,.25), transparent 55%),
-    #05030f;
+    radial-gradient(circle at 18% 18%, rgba(128, 125, 255, .25), transparent 30%),
+    radial-gradient(circle at 82% 10%, rgba(255, 120, 220, .18), transparent 32%),
+    radial-gradient(circle at 50% 120%, rgba(50, 205, 255, .16), transparent 44%),
+    linear-gradient(180deg, #17133c 0%, #061224 100%);
+}
+.stars-layer,
+.title-bg::before,
+.title-bg::after {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  background-image:
+    radial-gradient(1px 1px at 12% 26%, rgba(255,255,255,.95), transparent),
+    radial-gradient(1px 1px at 35% 78%, rgba(190,220,255,.9), transparent),
+    radial-gradient(2px 2px at 68% 18%, rgba(255,255,255,.95), transparent),
+    radial-gradient(1px 1px at 88% 58%, rgba(180,210,255,.9), transparent),
+    radial-gradient(1px 1px at 52% 44%, rgba(255,255,255,.9), transparent);
+  background-size: 190px 190px;
+  opacity: .62;
+  animation: drift 54s linear infinite;
+}
+.title-bg::before {
+  background-size: 270px 270px;
+  opacity: .45;
+  animation-duration: 78s;
+  animation-direction: reverse;
 }
 .title-bg::after {
-  content: ""; position: absolute; inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 20% 30%, #fff, transparent),
-    radial-gradient(1px 1px at 60% 70%, #fff, transparent),
-    radial-gradient(1px 1px at 80% 20%, #bcf, transparent),
-    radial-gradient(2px 2px at 40% 80%, #fff, transparent),
-    radial-gradient(1px 1px at 90% 50%, #fff, transparent),
-    radial-gradient(1px 1px at 10% 60%, #adf, transparent);
-  background-size: 200px 200px;
-  animation: drift 60s linear infinite;
+  background-image: linear-gradient(150deg, transparent 0 44%, rgba(117, 214, 255, .14) 45% 46%, transparent 47% 100%);
+  background-size: 140px 260px;
+  opacity: .4;
+  animation-duration: 46s;
+}
+.planet {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.planet-main {
+  width: 156px;
+  aspect-ratio: 1;
+  right: -48px;
+  top: 98px;
+  background: radial-gradient(circle at 35% 28%, #7887ff, #24346f 60%, #10183f);
+  box-shadow: inset -20px -22px 34px rgba(0,0,0,.36), 0 0 48px rgba(95,143,255,.24);
   opacity: .8;
 }
-@keyframes drift { from { background-position: 0 0; } to { background-position: -200px 200px; } }
-.title-inner {
-  position: relative; z-index: 2;
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-start;
-  padding: 14px 16px; text-align: center;
+.planet-small {
+  width: 52px;
+  aspect-ratio: 1;
+  left: 28px;
+  bottom: 124px;
+  background: radial-gradient(circle at 35% 30%, #ffd878, #8e4f32 66%, #311b24);
+  box-shadow: 0 0 28px rgba(255,216,120,.18);
+  opacity: .72;
+}
+@keyframes drift { from { background-position: 0 0; } to { background-position: -220px 260px; } }
+
+.title-main {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(62px, env(safe-area-inset-top) + 48px) 16px max(18px, env(safe-area-inset-bottom) + 10px);
+  text-align: center;
   overflow-y: auto;
 }
-.game-title {
-  font-size: 38px; letter-spacing: .06em; margin-top: 38px;
-  background: linear-gradient(180deg, #fff, #9cf 55%, #c9f);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  text-shadow: 0 0 30px rgba(120,160,255,.5);
+.game-logo {
+  margin: 0;
+  font-size: 2.55rem;
+  line-height: 1.04;
+  letter-spacing: 0;
+  color: #f8fbff;
+  text-shadow:
+    0 3px 0 #24466e,
+    0 0 18px rgba(97, 208, 255, .72);
 }
-.game-subtitle { font-size: 13px; color: #89c; letter-spacing: .3em; margin-top: 6px; }
 
 /* 上部コーナー */
-.title-top {
-  position: absolute; z-index: 4; top: 0; left: 0; right: 0;
-  display: flex; justify-content: space-between;
+.title-header {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
   padding: max(10px, env(safe-area-inset-top)) 12px 0;
 }
-.title-corner {
-  position: relative; display: flex; flex-direction: column; align-items: center;
-  gap: 1px; background: rgba(18,14,40,.6); border: 1px solid rgba(160,180,255,.25);
-  border-radius: 12px; padding: 6px 10px; color: #cde; cursor: pointer;
+.mini-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  border: 1px solid rgba(160,180,255,.28);
+  border-radius: 8px;
+  background: rgba(18,14,40,.62);
+  color: #dbe8ff;
+  padding: 6px 10px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
 }
-.title-corner .tc-icon { font-size: 20px; }
-.title-corner small { font-size: 9px; color: #9ab; }
+.mini-button .tc-icon { font-size: 17px; line-height: 1; }
+.mini-button small { font-size: 10px; color: #b9caff; font-weight: 800; }
 .tc-badge {
   position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px;
   background: #f44; color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; padding: 0 4px;
 }
 
-/* ヒーロー宇宙船（n‿n 顔） */
-.title-hero { position: relative; margin: 10px 0 6px; width: 100%; display: flex; justify-content: center; }
+/* 主人公と小型飛行船 */
+.hero-area {
+  position: relative;
+  width: min(100%, 360px);
+  height: 176px;
+  margin: 12px auto 10px;
+}
 .hero-compass {
-  position: absolute; top: -6px; font-size: 40px; color: #ffd84a;
-  text-shadow: 0 0 24px rgba(255,216,74,.8); animation: spinSlow 18s linear infinite; opacity: .9;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  font-size: 31px;
+  color: #ffd84a;
+  text-shadow: 0 0 20px rgba(255,216,74,.72);
+  animation: spinSlow 18s linear infinite;
+  opacity: .9;
 }
 @keyframes spinSlow { to { transform: rotate(360deg); } }
-.hero-ship { position: relative; margin-top: 6px; animation: bob 3.5s ease-in-out infinite; }
-@keyframes bob { 50% { transform: translateY(-8px); } }
-.ship-flag { position: absolute; top: -16px; left: 14px; font-size: 20px; transform: rotate(-12deg); }
-.ship-body {
-  position: relative; width: 168px; height: 120px;
-  background: radial-gradient(circle at 38% 32%, #f3ead2, #c9bb98 70%, #a89a78);
-  border-radius: 52% 52% 48% 48% / 58% 58% 42% 42%;
-  box-shadow: inset -10px -10px 24px rgba(0,0,0,.3), inset 8px 8px 18px rgba(255,255,255,.4), 0 0 36px rgba(90,200,255,.35);
+.ship-character {
+  position: absolute;
+  left: 8px;
+  bottom: 22px;
+  width: 190px;
+  height: 102px;
   border: 2px solid #8d7f5f;
+  border-radius: 50% 48% 45% 52%;
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255,255,255,.52), transparent 20%),
+    linear-gradient(160deg, #ddd3a9, #948a62 78%);
+  box-shadow:
+    inset -12px -14px 24px rgba(0,0,0,.28),
+    inset 8px 8px 18px rgba(255,255,255,.28),
+    0 0 24px rgba(95,210,255,.34);
+  animation: shipFloat 3.8s ease-in-out infinite;
 }
-.ship-screen {
-  position: absolute; left: 50%; top: 52%; transform: translate(-50%,-50%);
-  width: 96px; height: 64px; background: #0a1430; border-radius: 50%;
-  border: 3px solid #1d3a6e; display: flex; align-items: center; justify-content: center; gap: 4px;
-  box-shadow: inset 0 0 14px rgba(90,200,255,.5);
+@keyframes shipFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.ship-character::before {
+  content: "";
+  position: absolute;
+  right: -16px;
+  top: 34px;
+  width: 30px;
+  height: 26px;
+  border-radius: 0 50% 50% 0;
+  background: linear-gradient(90deg, #8d845c, #5b5670);
+}
+.ship-character::after {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: 42px;
+  width: 28px;
+  height: 20px;
+  border-radius: 50% 0 0 50%;
+  background: #b8a982;
+  box-shadow: -12px 0 20px rgba(95,210,255,.22);
+}
+.ship-flag {
+  position: absolute;
+  left: 20px;
+  top: -18px;
+  font-size: 19px;
+  transform: rotate(-12deg);
+}
+.ship-window {
+  position: absolute;
+  left: 50px;
+  top: 32px;
+  width: 88px;
+  height: 34px;
+  border: 3px solid #1d3a6e;
+  border-radius: 18px;
+  background: #082945;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: inset 0 0 12px rgba(0,0,0,.8), 0 0 12px rgba(95,210,255,.3);
 }
 .ship-eye { color: #66e0ff; font-size: 26px; font-weight: 700; text-shadow: 0 0 10px #59c8ff; line-height: 1; }
 .ship-smile { width: 22px; height: 12px; border: 3px solid #66e0ff; border-top: none; border-radius: 0 0 22px 22px; box-shadow: 0 0 8px #59c8ff; }
-.ship-port { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #59c8ff; box-shadow: 0 0 10px #59c8ff; }
-.ship-port.p1 { top: 20px; left: 24px; } .ship-port.p2 { top: 16px; left: 50px; } .ship-port.p3 { top: 22px; right: 26px; }
-.ship-fin { position: absolute; left: -22px; bottom: 24px; width: 40px; height: 22px; background: #b9a888; border-radius: 50% 0 0 50%; box-shadow: 0 0 16px rgba(90,200,255,.4); }
+.ship-light { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: #59c8ff; box-shadow: 0 0 10px #59c8ff; }
+.ship-light-left { top: 20px; left: 26px; }
+.ship-light-mid { top: 16px; left: 54px; }
+.ship-light-right { top: 22px; right: 28px; }
+.ship-fin {
+  position: absolute;
+  left: 24px;
+  bottom: -13px;
+  width: 54px;
+  height: 24px;
+  border-radius: 0 0 50% 50%;
+  background: linear-gradient(180deg, #a1a0be, #655d76);
+  transform: rotate(9deg);
+}
+.weak-hero {
+  position: absolute;
+  right: 42px;
+  bottom: 16px;
+  width: 54px;
+  height: 112px;
+  opacity: .96;
+}
+.hero-head {
+  position: absolute;
+  top: 6px;
+  left: 11px;
+  width: 32px;
+  height: 34px;
+  border-radius: 45% 45% 50% 50%;
+  background: #f1c59c;
+  box-shadow: inset -4px -4px 0 rgba(120,80,60,.18);
+}
+.hero-head::before,
+.hero-head::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  width: 3px;
+  height: 4px;
+  border-radius: 50%;
+  background: #27334c;
+}
+.hero-head::before { left: 9px; }
+.hero-head::after { right: 9px; }
+.hero-body {
+  position: absolute;
+  left: 7px;
+  top: 40px;
+  width: 40px;
+  height: 58px;
+  border-radius: 18px 18px 10px 10px;
+  background: linear-gradient(180deg, #7c9de8, #445d9c);
+  box-shadow: inset -5px -8px 0 rgba(0,0,0,.16);
+}
+.hero-body::before,
+.hero-body::after {
+  content: "";
+  position: absolute;
+  top: 13px;
+  width: 8px;
+  height: 36px;
+  border-radius: 8px;
+  background: #6780be;
+}
+.hero-body::before { left: -7px; transform: rotate(10deg); }
+.hero-body::after { right: -7px; transform: rotate(-10deg); }
+.hero-bag {
+  position: absolute;
+  right: 0;
+  top: 57px;
+  width: 18px;
+  height: 25px;
+  border-radius: 8px;
+  background: #a77d54;
+  box-shadow: inset -4px -5px 0 rgba(0,0,0,.16);
+}
 
-/* クルー紹介 */
-.crew-note {
-  font-size: 12px; font-weight: 700; color: #cdd6ff; margin: 4px 0 8px;
+/* 仲間紹介 */
+.scout-message {
+  font-size: 12px; font-weight: 700; color: #cdd6ff; margin: 2px 0 8px;
   background: rgba(120,90,255,.18); border: 1px solid rgba(160,140,255,.4);
   border-radius: 999px; padding: 5px 14px;
 }
-.crew-strip { display: flex; gap: 6px; width: 100%; justify-content: center; margin-bottom: 14px; }
-.crew-card {
-  flex: 1; max-width: 96px; background: rgba(18,14,40,.6);
-  border: 1px solid rgba(160,180,255,.25); border-radius: 12px; padding: 8px 4px;
+.starter-party { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; width: 100%; max-width: 360px; margin-bottom: 12px; }
+.party-card {
+  min-width: 0;
+  min-height: 76px;
+  border: 1px solid rgba(160,180,255,.28);
+  border-radius: 8px;
+  background: rgba(10,20,45,.72);
+  color: #fff;
+  padding: 7px 4px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0,0,0,.16);
 }
-.crew-face { font-size: 30px; }
-.crew-name { font-size: 11px; font-weight: 700; margin-top: 2px; }
-.crew-name b { color: var(--gold); } .crew-name b.pink { color: #f9a; } .crew-name b.green { color: var(--ok); }
-.crew-role { font-size: 9px; color: #9ab; }
+.party-icon { font-size: 26px; line-height: 1; }
+.party-name { font-size: 11px; font-weight: 800; margin-top: 4px; white-space: nowrap; }
+.party-name b { color: var(--gold); } .party-name b.pink { color: #f9a; } .party-name b.green { color: var(--ok); }
+.party-role { font-size: 9px; color: #9ab; margin-top: 2px; line-height: 1.15; }
 
-.title-menu { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }
-.btn-start {
-  font-size: 22px; padding: 16px; color: #3a2400; border: none;
-  background: linear-gradient(180deg, #ffe9a8, #ffcb3d 50%, #f5a623);
-  box-shadow: 0 4px 18px rgba(245,166,35,.5), inset 0 1px 0 rgba(255,255,255,.6);
+.main-actions { display: flex; flex-direction: column; gap: 9px; width: 100%; max-width: 320px; }
+.primary-button {
+  width: 100%;
+  min-height: 62px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #241600;
+  background: linear-gradient(180deg, #ffe07a, #f2a91f);
+  box-shadow: 0 8px 0 #9f6b11, 0 0 24px rgba(255,213,75,.38);
+  animation: startGlow 2.2s ease-in-out infinite alternate;
 }
-.btn-continue { background: rgba(30,40,80,.7); border: 1px solid rgba(110,180,255,.5); color: #cde; }
+@keyframes startGlow { from { filter: brightness(1); } to { filter: brightness(1.08); } }
+.secondary-button {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 8px;
+  background: rgba(15,35,70,.9);
+  color: #eaf5ff;
+  border: 1px solid rgba(118,205,255,.7);
+}
+body:not(.has-save) #continue-game-btn { opacity: .62; }
+.title-menu { width: 100%; max-width: 320px; margin-top: 8px; }
 .title-subrow { display: flex; gap: 8px; }
-.title-subrow .sub { flex: 1; font-size: 13px; padding: 10px 6px; }
+.menu-button { flex: 1; min-height: 42px; border-radius: 8px; font-size: 13px; padding: 10px 6px; }
 
 /* 冒険の流れ */
-.flow-bar {
-  width: 100%; max-width: 360px; margin-top: 16px;
-  border: 1px solid rgba(160,180,255,.25); border-radius: 14px; padding: 8px 10px 10px;
+.adventure-flow {
+  width: 100%; max-width: 360px; margin-top: 12px;
+  border: 1px solid rgba(160,180,255,.25); border-radius: 8px; padding: 8px 10px 10px;
   background: rgba(10,8,24,.5);
 }
-.flow-title { font-size: 12px; font-weight: 700; color: #cdd6ff; letter-spacing: .1em; }
+.flow-title { font-size: 12px; font-weight: 700; color: #cdd6ff; letter-spacing: 0; }
 .flow-steps { display: flex; align-items: center; justify-content: center; gap: 2px; margin-top: 6px; }
 .flow-step { display: flex; flex-direction: column; align-items: center; font-size: 22px; }
 .flow-step small { font-size: 9px; color: #9ab; margin-top: 2px; }
 .flow-arrow { color: #6cf; font-size: 14px; }
 
-.title-ver { position: absolute; left: 10px; bottom: 8px; z-index: 4; font-size: 11px; color: #567; }
+.title-footer { position: absolute; left: 10px; bottom: 8px; z-index: 4; font-size: 11px; color: #60718f; }
+
+@media (max-height: 720px) {
+  .title-main { padding-top: max(50px, env(safe-area-inset-top) + 42px); }
+  .game-logo { font-size: 2.18rem; }
+  .hero-area { height: 142px; margin-top: 6px; }
+  .ship-character { width: 160px; height: 88px; bottom: 15px; }
+  .ship-window { left: 42px; top: 28px; width: 74px; height: 30px; }
+  .weak-hero { right: 50px; bottom: 8px; transform: scale(.86); transform-origin: bottom right; }
+  .starter-party { margin-bottom: 9px; }
+  .party-card { min-height: 66px; padding-top: 5px; }
+  .adventure-flow { margin-top: 8px; }
+}
 
 /* ===== オープニング ===== */
 #screen-intro {
