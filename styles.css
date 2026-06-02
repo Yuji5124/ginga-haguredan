@@ -289,11 +289,11 @@ html, body {
   pointer-events: none; transition: opacity .5s;
 }
 
-/* ボスHPバー（上部中央） */
-.sh-boss { position: absolute; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: 50%; text-align: center; }
-.sh-boss.hidden { display: none; }
-.sh-boss-name { font-size: 12px; font-weight: 700; color: var(--gold); text-shadow: 0 1px 4px #000; letter-spacing: .04em; }
-.sh-boss-bar { margin-top: 3px; height: 9px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; overflow: hidden; background: rgba(0,0,0,.5); }
+/* 目的地（星）への到達ゲージ（上部中央） */
+.sh-dest { position: absolute; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: 50%; text-align: center; }
+.sh-dest.hidden { display: none; }
+.sh-dest-name { font-size: 12px; font-weight: 700; color: var(--gold); text-shadow: 0 1px 4px #000; letter-spacing: .04em; }
+.sh-dest-bar { margin-top: 3px; height: 9px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; overflow: hidden; background: rgba(0,0,0,.5); }
 #sh-dest-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2) 60%, var(--ok)); transition: width .2s; }
 
 /* 左上ブロック */
