@@ -37,3 +37,18 @@
 
 主人公・飛行船・仲間3体の日本語プロンプトは **`docs/image_prompts.md`** にまとめています。
 ChatGPT等で生成 → 上記パスに配置 → リロードで反映されます。
+
+## 差し替えルール（まとめ）
+
+- 画像はすべて **PNG 推奨**
+- **背景透明**
+- **ファイル名はコード側のIDと一致させる**（仲間：`c1`〜`c100` → `assets/characters/c1.png` …、敵：`e1`〜`e20`）
+- 画像がない場合は **絵文字・CSS表示にフォールバック**（無くても動作する）
+- **まずは5枚のみ差し替え対象**：
+  - `assets/title/hero_main.png`
+  - `assets/ships/ship_default.png`
+  - `assets/characters/c1.png`（c001／ロボ太）
+  - `assets/characters/c2.png`（c002／ねこ船長）
+  - `assets/characters/c3.png`（c003／おばけ）
+- **100体全員分は後回し**
+- 生成プロンプトは `docs/image_prompts.md` を参照（Claude Code 側では画像生成は行わない）
