@@ -1505,10 +1505,62 @@ function finishArrival() {
   if (!arrivalStar) return;        // 二重実行ガード
   clearTimeout(arrivalTimer);
   const s = arrivalStar; arrivalStar = null;
-  startBattle(s);
+  if (s.stage === 1) playPinoScene(s);
+  else startBattle(s);
 }
 // タップでスキップ
 document.querySelector("#screen-arrival").addEventListener("click", finishArrival);
+
+// -------------------------------------------------------------
+// ピノの戦闘前会話（ステージ1）
+// -------------------------------------------------------------
+const PINO_PRE_BATTLE_LINES = [
+  "……敵影、あります",
+  "たぶん、こわいです。ぼくも、こわいです",
+  "でも……ひとりじゃありません",
+  "ぼく、道はよく間違えます",
+  "でも、いっしょに進むことはできます",
+  "行きましょう。最初の一歩です",
+];
+let pinoSceneStar = null;
+let pinoLineIndex = 0;
+
+function playPinoScene(star) {
+  pinoSceneStar = star;
+  pinoLineIndex = 0;
+  show("pino");
+  renderPinoLine();
+}
+
+function renderPinoLine() {
+  const el = document.getElementById("pino-line");
+  el.textContent = PINO_PRE_BATTLE_LINES[pinoLineIndex] || "";
+  el.classList.remove("show");
+  void el.offsetWidth;
+  el.classList.add("show");
+  document.querySelector('[data-action="pino-next"]').textContent =
+    pinoLineIndex >= PINO_PRE_BATTLE_LINES.length - 1 ? "戦闘へ" : "次へ";
+}
+
+function advancePinoScene() {
+  if (pinoLineIndex >= PINO_PRE_BATTLE_LINES.length - 1) return finishPinoScene();
+  pinoLineIndex++;
+  renderPinoLine();
+}
+
+function finishPinoScene() {
+  if (!pinoSceneStar) return;
+  const s = pinoSceneStar;
+  pinoSceneStar = null;
+  startBattle(s);
+}
+
+document.querySelector("#screen-pino").addEventListener("click", (e) => {
+  const actionEl = e.target.closest("[data-action]");
+  if (actionEl?.dataset.action === "pino-skip") return finishPinoScene();
+  if (actionEl?.dataset.action === "pino-next") return advancePinoScene();
+  if (!e.target.closest("button")) advancePinoScene();
+});
 
 // -------------------------------------------------------------
 // RPG戦闘
