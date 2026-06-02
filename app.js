@@ -14,15 +14,32 @@ const RARITY = {
 };
 
 // 仲間候補（戦闘勝利後にスカウト / 図鑑に登録）
+// navBonus … 航行（シューティング）パートへの効果。voice … スカウト時の一言
 const ALLIES = [
-  { id: "robo",   name: "ロボ太",     face: "🤖", hp: 40, atk: 12, img: "robo",   rarity: 2, tag: "メカ族" },
-  { id: "neko",   name: "ねこ船長",   face: "🐱", hp: 32, atk: 14, img: "neko",   rarity: 2, tag: "ねこ族" },
-  { id: "alien",  name: "ミドリ星人", face: "👽", hp: 30, atk: 13, img: "alien",  rarity: 3, tag: "宇宙人" },
-  { id: "ghost",  name: "おばけ",     face: "👻", hp: 28, atk: 16, img: "ghost",  rarity: 3, tag: "ゆうれい" },
-  { id: "drago",  name: "コドラゴ",   face: "🐲", hp: 50, atk: 18, img: "drago",  rarity: 4, tag: "ドラゴン" },
-  { id: "star",   name: "スターちゃん",face: "⭐", hp: 26, atk: 20, img: "star",   rarity: 5, tag: "スター" },
-  { id: "octo",   name: "タコすけ",   face: "🐙", hp: 36, atk: 11, img: "octo",   rarity: 2, tag: "海洋生物" },
-  { id: "pengin", name: "ペンペン",   face: "🐧", hp: 34, atk: 12, img: "pengin", rarity: 2, tag: "鳥類" },
+  { id: "robo",   name: "ロボ太",     face: "🤖", hp: 40, atk: 12, img: "robo",   rarity: 2, tag: "メカ族",
+    navBonus: { type: "fireRate",    label: "射撃速度アップ" },
+    voice: { ok: "いっしょに行こうぜ！", ng: "まだ準備不足かな…", bye: "またな、相棒！" } },
+  { id: "neko",   name: "ねこ船長",   face: "🐱", hp: 32, atk: 14, img: "neko",   rarity: 2, tag: "ねこ族",
+    navBonus: { type: "crystalUp",   label: "クリスタル獲得 +10%" },
+    voice: { ok: "乗せてってやるにゃ！", ng: "気が向かないにゃ", bye: "またどこかで会おうにゃ" } },
+  { id: "alien",  name: "ミドリ星人", face: "👽", hp: 30, atk: 13, img: "alien",  rarity: 3, tag: "宇宙人",
+    navBonus: { type: "missionBoost", label: "ミッション報酬 強化" },
+    voice: { ok: "ワレ、ナカマニ ナル！", ng: "マダ、ハヤイ…", bye: "マタ ドコカデ" } },
+  { id: "ghost",  name: "おばけ",     face: "👻", hp: 28, atk: 16, img: "ghost",  rarity: 3, tag: "ゆうれい",
+    navBonus: { type: "rockGuard",   label: "隕石ダメージ 低確率で無効" },
+    voice: { ok: "ひゅ〜、ついてくよ〜", ng: "いまは むり〜", bye: "ばいば〜い" } },
+  { id: "drago",  name: "コドラゴ",   face: "🐲", hp: 50, atk: 18, img: "drago",  rarity: 4, tag: "ドラゴン",
+    navBonus: { type: "killCrystal", label: "敵撃破で +1💎" },
+    voice: { ok: "燃えてきたぜ！", ng: "まだ認めねぇ！", bye: "また勝負だ！" } },
+  { id: "star",   name: "スターちゃん",face: "⭐", hp: 26, atk: 20, img: "star",   rarity: 5, tag: "スター",
+    navBonus: { type: "bigUp",       label: "大クリスタル +10" },
+    voice: { ok: "キラッ☆ いいよ！", ng: "うーん、まだかな", bye: "また会おうね☆" } },
+  { id: "octo",   name: "タコすけ",   face: "🐙", hp: 36, atk: 11, img: "octo",   rarity: 2, tag: "海洋生物",
+    navBonus: { type: "shield",      label: "開始時バリア ×1" },
+    voice: { ok: "8本うでで手伝うよ！", ng: "ちょっと無理かも", bye: "またね〜" } },
+  { id: "pengin", name: "ペンペン",   face: "🐧", hp: 34, atk: 12, img: "pengin", rarity: 2, tag: "鳥類",
+    navBonus: { type: "slow",        label: "隕石スピード -10%" },
+    voice: { ok: "ぺんっ！行く！", ng: "さむいから今度ね", bye: "ぺんぺん、またね" } },
 ];
 
 // 星（ステージ）。candidates = その星で出会える仲間候補
@@ -47,6 +64,32 @@ const MISSIONS = [
 
 // 直前の航行で獲得したボーナス（次の戦闘/スカウトに反映）。なければ null
 let stageBonus = null;
+
+// パーティ構成から航行（シューティング）効果を集約
+function computeNavEffects(partyIds) {
+  const e = {
+    fireRateMul: 1, crystalMul: 1, rockGuardChance: 0, killBonus: 0,
+    bigBonus: 0, shields: 0, hazardSpeedMul: 1, missionBoost: false, labels: [],
+  };
+  partyIds.forEach(id => {
+    const a = allyById(id);
+    if (!a || !a.navBonus) return;
+    switch (a.navBonus.type) {
+      case "fireRate":     e.fireRateMul *= 0.85; break;
+      case "crystalUp":    e.crystalMul *= 1.10; break;
+      case "rockGuard":    e.rockGuardChance = Math.min(0.6, e.rockGuardChance + 0.20); break;
+      case "killCrystal":  e.killBonus += 1; break;
+      case "bigUp":        e.bigBonus += 10; break;
+      case "shield":       e.shields += 1; break;
+      case "slow":         e.hazardSpeedMul *= 0.90; break;
+      case "missionBoost": e.missionBoost = true; break;
+    }
+    e.labels.push({ name: a.name, img: a.img, face: a.face, label: a.navBonus.label });
+  });
+  e.fireRateMul = Math.max(0.4, e.fireRateMul);     // 上限（速くなりすぎない）
+  e.hazardSpeedMul = Math.max(0.7, e.hazardSpeedMul);
+  return e;
+}
 
 // 敵（戦闘）
 const ENEMIES = {
@@ -138,6 +181,8 @@ function onEnter(name) {
   if (name === "worldmap") { startWorldmap(); renderStarList(); refreshCrystals(); }
   else { stopWorldmap(); }
   if (name === "dex") renderDex();
+  if (name === "party") renderPartyScreen();
+  if (name === "settings") document.getElementById("settings-crystals").textContent = `💎 ${save.crystals}`;
 }
 
 // トースト
@@ -158,14 +203,47 @@ function refreshCrystals() {
 // タイトル
 // -------------------------------------------------------------
 document.querySelector("#screen-title").addEventListener("click", (e) => {
-  const action = e.target.dataset.action;
-  if (action === "start-game") show("worldmap");
-  else if (action === "open-dex-title") { dexReturn = "title"; show("dex"); }
-  else if (action === "reset-save") {
-    if (confirm("セーブデータを消去しますか？")) { resetSave(); toast("データを消去しました"); }
-  } else if (!action) {
-    // 背景タップでもはじめる
-    show("worldmap");
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  switch (el.dataset.action) {
+    case "start-game":
+    case "continue":      show("worldmap"); break;
+    case "open-dex-title": dexReturn = "title"; show("dex"); break;
+    case "party":          show("party"); break;
+    case "settings":       show("settings"); break;
+    case "news":           toast("お知らせは準備中です"); break;
+    case "gift":           toast("プレゼントは準備中です"); break;
+  }
+});
+
+// パーティ / 設定 画面（タイトルのサブ画面）
+function renderPartyScreen() {
+  const list = document.getElementById("party-list");
+  list.innerHTML = save.party.map(id => {
+    const a = allyById(id); if (!a) return "";
+    return `
+      <div class="party-row">
+        <div class="pr-face">${faceHTML(a.face, `characters/${a.img}`)}</div>
+        <div class="pr-info">
+          <div class="pr-name">${a.name} <span class="rarity">${"★".repeat(a.rarity)}</span></div>
+          <div class="pr-sub">${a.tag} ／ HP${a.hp} こうげき${a.atk}</div>
+          <div class="pr-nav">航行：${a.navBonus.label}</div>
+        </div>
+      </div>`;
+  }).join("");
+}
+document.querySelector("#screen-party").addEventListener("click", (e) => {
+  if (e.target.closest('[data-action="close-sub"]')) show("title");
+});
+document.querySelector("#screen-settings").addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  if (el.dataset.action === "close-sub") show("title");
+  else if (el.dataset.action === "reset-save") {
+    if (confirm("セーブデータを消去しますか？")) {
+      resetSave(); toast("データを消去しました");
+      document.getElementById("settings-crystals").textContent = `💎 ${save.crystals}`;
+    }
   }
 });
 
@@ -254,9 +332,31 @@ function renderStarList() {
 let currentStar = null;
 function startStage(star) {
   currentStar = star;
-  show("shooting");
-  startShooting(star);
+  showPreflight(star);
 }
+
+// 航行前：今回の仲間効果を表示 → 「航行開始」で出発
+function showPreflight(star) {
+  const eff = computeNavEffects(save.party);
+  document.getElementById("preflight-star").textContent = `${star.icon} ${star.name} へ`;
+  const list = document.getElementById("preflight-list");
+  list.innerHTML = eff.labels.length
+    ? eff.labels.map(l => `
+        <div class="pf-row">
+          <span class="pf-face">${faceHTML(l.face, `characters/${l.img}`)}</span>
+          <span class="pf-name">${l.name}</span>
+          <span class="pf-eff">${l.label}</span>
+        </div>`).join("")
+    : `<div class="pf-row"><span class="pf-eff">特別な効果なし</span></div>`;
+  show("preflight");
+}
+
+document.querySelector("#screen-preflight").addEventListener("click", (e) => {
+  if (e.target.dataset.action === "launch") {
+    show("shooting");
+    startShooting(currentStar);
+  }
+});
 
 // -------------------------------------------------------------
 // Three.js 宇宙シューティング（最小版）
@@ -264,6 +364,7 @@ function startStage(star) {
 const STAGE_TIME = 30; // シューティング1ステージの秒数
 
 const MAX_HP = 3;
+const SHIP_R = 0.48; // 飛行船の当たり判定半径（小さめの丸い船体に合わせる）
 
 const SH = {
   renderer: null, scene: null, camera: null, raf: null,
@@ -273,6 +374,8 @@ const SH = {
   // 航行スタッツ＆ミッション
   dmgTaken: 0, kills: 0, bigPicked: 0,
   mission: null, missionProgress: 0, missionDone: false, missionFailed: false,
+  // 仲間の航行効果
+  nav: null, shieldLeft: 0,
 };
 
 function initShooting() {
@@ -313,27 +416,72 @@ function initShooting() {
   SH.scene.add(SH.ship);
 }
 
+// タイトルの中央宇宙船イメージ：丸っこいクリーム色の船体＋青い「n_n」顔
 function buildShip() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.ConeGeometry(0.8, 2.2, 12),
-    new THREE.MeshStandardMaterial({ color: 0x66ccff, emissive: 0x113355, metalness: 0.6, roughness: 0.3 })
+
+  // 丸い船体（少し横ぶくれ）
+  const hull = new THREE.Mesh(
+    new THREE.SphereGeometry(0.6, 24, 18),
+    new THREE.MeshStandardMaterial({ color: 0xe8dcc0, metalness: 0.5, roughness: 0.4, emissive: 0x2a2415 })
   );
-  body.rotation.x = -Math.PI / 2; // 先端を奥（-Z）へ
-  g.add(body);
-  const wing = new THREE.Mesh(
-    new THREE.BoxGeometry(2.4, 0.2, 0.8),
-    new THREE.MeshStandardMaterial({ color: 0xcc66ff, emissive: 0x220044 })
+  hull.scale.set(1.15, 0.9, 1.05);
+  g.add(hull);
+
+  // 顔パネル（カメラ側 +Z）
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(0.32, 24),
+    new THREE.MeshStandardMaterial({ color: 0x0a1430, emissive: 0x0a1430, roughness: 0.5 })
   );
-  wing.position.z = 0.4;
-  g.add(wing);
-  // エンジン光
+  face.position.set(0, 0.06, 0.62);
+  g.add(face);
+
+  // 目（n_n）＝青く光る2つ
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x66e0ff });
+  [-0.12, 0.12].forEach(x => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), eyeMat);
+    eye.position.set(x, 0.07, 0.66);
+    g.add(eye);
+  });
+
+  // 舷側のポッド（左右）
+  const podMat = new THREE.MeshStandardMaterial({ color: 0xb9a888, metalness: 0.5, roughness: 0.5 });
+  [-0.66, 0.66].forEach(x => {
+    const pod = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 12), podMat);
+    pod.position.set(x, -0.08, 0.05);
+    pod.scale.set(1, 0.9, 1.3);
+    g.add(pod);
+  });
+
+  // 青く光る舷窓（ポートホール）
+  const portMat = new THREE.MeshBasicMaterial({ color: 0x59c8ff });
+  [[-0.34, 0.18], [0.34, 0.18], [0, 0.34]].forEach(([x, y]) => {
+    const port = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), portMat);
+    port.position.set(x, y, 0.5);
+    g.add(port);
+  });
+
+  // てっぺんの小さなアンテナ＋光
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.015, 0.015, 0.25, 6),
+    new THREE.MeshStandardMaterial({ color: 0x888888 })
+  );
+  pole.position.set(0, 0.5, 0);
+  g.add(pole);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffd84a }));
+  tip.position.set(0, 0.64, 0);
+  g.add(tip);
+
+  // エンジン光（後方＝画面奥 -Z へトレイル）
   const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(0.4, 12, 12),
+    new THREE.SphereGeometry(0.18, 12, 12),
     new THREE.MeshBasicMaterial({ color: 0x66ffff })
   );
-  glow.position.z = 1.2;
+  glow.position.set(0, -0.12, -0.5);
+  glow.scale.set(1, 1, 1.8);
   g.add(glow);
+
+  g.scale.setScalar(0.78); // 全体を少し小さく
   g.position.set(0, 0, 8);
   return g;
 }
@@ -415,6 +563,9 @@ function startShooting(star) {
   SH.dmgTaken = 0; SH.kills = 0; SH.bigPicked = 0;
   SH.mission = MISSIONS[Math.floor(Math.random() * MISSIONS.length)];
   SH.missionProgress = 0; SH.missionDone = false; SH.missionFailed = false;
+  // 仲間の航行効果を反映
+  SH.nav = computeNavEffects(save.party);
+  SH.shieldLeft = SH.nav.shields;
   stageBonus = null; // 前回の航行ボーナスをクリア
   updateShootingHUD();
   updateMissionHUD();
@@ -449,8 +600,8 @@ function updateShooting(dt, now) {
   SH.ship.rotation.z = (SH.targetX - SH.ship.position.x) * -0.2;
   SH.ship.rotation.x = (SH.targetY - SH.ship.position.y) * 0.15; // 上下移動で軽くピッチ
 
-  // 自動弾
-  if (now - SH.lastShot > 350) { fireBullet(); SH.lastShot = now; }
+  // 自動弾（ロボ太がいると発射間隔が短縮）
+  if (now - SH.lastShot > 350 * SH.nav.fireRateMul) { fireBullet(); SH.lastShot = now; }
 
   // スポーン（種類ごとに出現率を設定）
   if (now - SH.lastSpawn > 600) {
@@ -477,12 +628,12 @@ function updateShooting(dt, now) {
     b.position.z -= speed * 1.6 * dt;
     if (b.position.z < -95) { SH.scene.remove(b); SH.bullets.splice(i, 1); }
   }
-  // 隕石（通常 -1 / 赤 -2）
+  // 隕石（通常 -1 / 赤 -2）。ペンペンがいると接近スピード低下
   for (let i = SH.rocks.length - 1; i >= 0; i--) {
     const o = SH.rocks[i];
-    o.position.z += speed * dt;
+    o.position.z += speed * SH.nav.hazardSpeedMul * dt;
     o.rotation.x += o.userData.spin; o.rotation.y += o.userData.spin;
-    if (hitShip(o)) { damageShip(o.userData.dmg); SH.scene.remove(o); SH.rocks.splice(i, 1); continue; }
+    if (hitShip(o)) { damageShip(o.userData.dmg, true); SH.scene.remove(o); SH.rocks.splice(i, 1); continue; }
     if (o.position.z > 14) { SH.scene.remove(o); SH.rocks.splice(i, 1); }
   }
   // クリスタル（通常 +5 / 大 +20 / 回復 HP+1）
@@ -493,10 +644,10 @@ function updateShooting(dt, now) {
     if (hitShip(o)) { collectCrystal(o.userData.kind); SH.scene.remove(o); SH.crystals.splice(i, 1); continue; }
     if (o.position.z > 14) { SH.scene.remove(o); SH.crystals.splice(i, 1); }
   }
-  // 敵
+  // 敵（ペンペンがいると接近スピード低下）
   for (let i = SH.enemies.length - 1; i >= 0; i--) {
     const e = SH.enemies[i];
-    e.position.z += speed * 0.8 * dt;
+    e.position.z += speed * 0.8 * SH.nav.hazardSpeedMul * dt;
     e.rotation.z += 0.04;
     // 弾ヒット
     for (let j = SH.bullets.length - 1; j >= 0; j--) {
@@ -504,7 +655,8 @@ function updateShooting(dt, now) {
         SH.scene.remove(SH.bullets[j]); SH.bullets.splice(j, 1);
         e.userData.hp--;
         if (e.userData.hp <= 0) {
-          SH.gained += 8; SH.kills++; bumpMission("kill");
+          // コドラゴがいると撃破クリスタル +killBonus
+          SH.gained += 8 + SH.nav.killBonus; SH.kills++; bumpMission("kill");
           updateShootingHUD();
           SH.scene.remove(e); SH.enemies.splice(i, 1);
         }
@@ -512,7 +664,7 @@ function updateShooting(dt, now) {
       }
     }
     if (SH.enemies[i] === e) {
-      if (hitShip(e)) { damageShip(); SH.scene.remove(e); SH.enemies.splice(i, 1); continue; }
+      if (hitShip(e)) { damageShip(1, false); SH.scene.remove(e); SH.enemies.splice(i, 1); continue; }
       if (e.position.z > 14) { SH.scene.remove(e); SH.enemies.splice(i, 1); }
     }
   }
@@ -524,9 +676,21 @@ function updateShooting(dt, now) {
 }
 
 function hitShip(o) {
-  return o.position.distanceTo(SH.ship.position) < (o.userData.r + 0.9);
+  return o.position.distanceTo(SH.ship.position) < (o.userData.r + SHIP_R);
 }
-function damageShip(amount = 1) {
+function damageShip(amount = 1, isRock = false) {
+  // おばけ：隕石ダメージを低確率で無効化
+  if (isRock && SH.nav.rockGuardChance > 0 && Math.random() < SH.nav.rockGuardChance) {
+    flashScreen("#9cf"); // ガード演出
+    return;
+  }
+  // タコすけ：開始時バリアで1回ぶん肩代わり
+  if (SH.shieldLeft > 0) {
+    SH.shieldLeft--;
+    flashScreen("#9cf");
+    updateShootingHUD();
+    return;
+  }
   SH.hp -= amount;
   SH.dmgTaken += amount;
   // ノーダメージ系ミッションは被弾で失敗
@@ -537,15 +701,16 @@ function damageShip(amount = 1) {
   updateMissionHUD();
 }
 
-// クリスタル取得（種類ごとに効果）
+// クリスタル取得（種類ごとに効果。ねこ船長=獲得量+%、スターちゃん=大クリ価値+）
 function collectCrystal(kind) {
+  const mul = SH.nav.crystalMul;
   if (kind === "big") {
-    SH.gained += 20; SH.bigPicked++;
+    SH.gained += Math.round((20 + SH.nav.bigBonus) * mul); SH.bigPicked++;
     bumpMission("big"); bumpMission("crystal");
   } else if (kind === "heal") {
     if (SH.hp < MAX_HP) { SH.hp++; flashScreen("#6f9"); }
   } else {
-    SH.gained += 5; bumpMission("crystal");
+    SH.gained += Math.round(5 * mul); bumpMission("crystal");
   }
   updateShootingHUD();
 }
@@ -586,7 +751,9 @@ function flashScreen(color) {
 function updateShootingHUD() {
   document.getElementById("sh-crystals").textContent = SH.gained;
   document.getElementById("sh-timer").textContent = Math.ceil(SH.timeLeft);
-  document.getElementById("sh-hp").textContent = "❤".repeat(Math.max(0, SH.hp)) || "💀";
+  const hearts = "❤".repeat(Math.max(0, SH.hp)) || "💀";
+  const shield = SH.shieldLeft > 0 ? " 🛡".repeat(SH.shieldLeft) : "";
+  document.getElementById("sh-hp").textContent = hearts + shield;
   document.getElementById("sh-progress").style.width = `${(1 - SH.timeLeft / STAGE_TIME) * 100}%`;
 }
 
@@ -618,27 +785,45 @@ function endShooting() {
 
   const cleared = SH.hp > 0;                 // HPが残れば星に到達
   const missionOk = !!SH.missionDone;
+  const boosted = !!(SH.nav && SH.nav.missionBoost); // ミドリ星人：ミッション報酬強化
   // ミッション成功なら次の戦闘/スカウト用ボーナスを獲得
-  stageBonus = missionOk ? SH.mission.bonus : null;
+  stageBonus = missionOk ? { ...SH.mission.bonus, boosted } : null;
 
   // 報酬：拾ったクリスタル + 到達ボーナス + ミッション(クリスタル系)ボーナス
   let reward = SH.gained;
   if (cleared) reward += currentStar.reward;
-  if (stageBonus && stageBonus.type === "crystal") reward += 20;
+  if (stageBonus && stageBonus.type === "crystal") reward += boosted ? 30 : 20;
   save.crystals += reward;
   persist();
 
-  showResult({ cleared, missionOk, reward });
+  // 評価ランク
+  let rank;
+  if (!cleared) rank = "C";
+  else if (SH.dmgTaken === 0 && missionOk) rank = "S";
+  else if (missionOk || SH.dmgTaken <= 1) rank = "A";
+  else rank = "B";
+
+  showResult({ cleared, missionOk, reward, rank, boosted });
 }
+
+const RANK_COMMENT = {
+  S: "完璧な航行！", A: "いい航行だった！", B: "なんとか突破！", C: "船体ボロボロ…",
+};
 
 // -------------------------------------------------------------
 // シューティング結果画面（戦闘の前に1枚はさむ）
 // -------------------------------------------------------------
 let resultCleared = false;
-function showResult({ cleared, missionOk, reward }) {
+function showResult({ cleared, missionOk, reward, rank, boosted }) {
   resultCleared = cleared;
   show("result");
   document.getElementById("result-title").textContent = cleared ? "星に到達！" : "航行 失敗…";
+
+  // 評価ランク＆一言コメント
+  const rEl = document.getElementById("result-rank");
+  rEl.className = `result-rank rank-${rank}`;
+  rEl.innerHTML = `<span class="rank-letter">${rank}</span><span class="rank-comment">${RANK_COMMENT[rank]}</span>`;
+
   document.getElementById("result-stats").innerHTML = `
     <div class="result-row"><span>獲得クリスタル</span><span class="v" style="color:var(--crystal)">💎 ${reward}</span></div>
     <div class="result-row"><span>受けたダメージ</span><span class="v" style="color:var(--danger)">${SH.dmgTaken}</span></div>
@@ -647,9 +832,14 @@ function showResult({ cleared, missionOk, reward }) {
   `;
   const mEl = document.getElementById("result-mission");
   mEl.className = "result-mission " + (missionOk ? "ok" : "ng");
-  mEl.textContent = `🎯 ${SH.mission.desc} … ${missionOk ? "成功！" : "失敗"}`;
-  document.getElementById("result-bonus").textContent =
-    missionOk ? `ボーナス獲得：${SH.mission.bonus.label}` : "ボーナスなし";
+  mEl.textContent = `🎯 ${SH.mission.desc} … ${missionOk ? "ミッション成功！" : "失敗"}`;
+
+  const bEl = document.getElementById("result-bonus");
+  if (missionOk) {
+    bEl.innerHTML = `ボーナス獲得：${SH.mission.bonus.label}${boosted ? ' <span class="boost-tag">強化↑</span>' : ""}`;
+  } else {
+    bEl.textContent = "ボーナスなし";
+  }
 }
 
 document.querySelector("#screen-result").addEventListener("click", (e) => {
@@ -667,16 +857,18 @@ function startBattle(star) {
   show("battle");
   const def = ENEMIES[star.enemy];
   BT.enemy = def;
-  // 航行ボーナス：敵HP -10%
+  const boosted = stageBonus && stageBonus.boosted;
+  // 航行ボーナス：敵HP -10%（強化時 -15%）
   const enemyHpDown = stageBonus && stageBonus.type === "enemyHp";
-  BT.enemyHp = enemyHpDown ? Math.round(def.hp * 0.9) : def.hp;
+  BT.enemyHp = enemyHpDown ? Math.round(def.hp * (boosted ? 0.85 : 0.9)) : def.hp;
   BT.won = false;
   BT.turnLock = false;
-  // 航行ボーナス：味方HP +1
+  // 航行ボーナス：味方HP +1（強化時 +2）
   const allyHpUp = stageBonus && stageBonus.type === "allyHp";
+  const hpPlus = allyHpUp ? (boosted ? 2 : 1) : 0;
   BT.party = save.party.slice(0, 4).map(id => {
     const a = ALLIES.find(x => x.id === id);
-    const maxHp = a.hp + (allyHpUp ? 1 : 0);
+    const maxHp = a.hp + hpPlus;
     return { ...a, curHp: maxHp, maxHp, dead: false };
   });
 
@@ -690,7 +882,7 @@ function startBattle(star) {
   log(`${def.name} が あらわれた！`);
   // ボーナス反映の告知
   if (stageBonus && ["enemyHp", "allyHp", "scoutRate"].includes(stageBonus.type)) {
-    log(`✦ 航行ボーナス：${stageBonus.label}`);
+    log(`✦ 航行ボーナス：${stageBonus.label}${stageBonus.boosted ? "（強化）" : ""}`);
   }
   setCommands(true);
 }
@@ -712,19 +904,24 @@ function renderParty() {
   });
 }
 
+const LOG_MAX = 5; // 戦闘ログは最新5件だけ表示
 function clearLog() { document.getElementById("battle-log").innerHTML = ""; }
 function log(msg) {
   const el = document.getElementById("battle-log");
   const p = document.createElement("div");
   p.textContent = msg;
   el.appendChild(p);
+  while (el.childElementCount > LOG_MAX) el.removeChild(el.firstChild);
   el.scrollTop = el.scrollHeight;
 }
 function setCommands(on) {
   document.querySelectorAll("#battle-commands .cmd").forEach(b => b.disabled = !on);
 }
 function setEnemyHpBar() {
-  document.getElementById("enemy-hp-fill").style.width = `${Math.max(0, BT.enemyHp / BT.enemy.hp * 100)}%`;
+  const hp = Math.max(0, BT.enemyHp);
+  document.getElementById("enemy-hp-fill").style.width = `${hp / BT.enemy.hp * 100}%`;
+  const txt = document.getElementById("enemy-hp-text");
+  if (txt) txt.textContent = `${hp} / ${BT.enemy.hp}`;
 }
 
 document.getElementById("battle-commands").addEventListener("click", (e) => {
@@ -761,7 +958,7 @@ async function attackRound(multiplier, label) {
     log(`${m.name}の ${label}！ ${dmg} のダメージ`);
     enemySprite().classList.add("hit");
     setEnemyHpBar();
-    await wait(380);
+    await wait(240);
     enemySprite().classList.remove("hit");
     if (BT.enemyHp <= 0) { return enemyDefeated(); }
   }
@@ -777,7 +974,7 @@ async function enemyTurn() {
   log(`${BT.enemy.name}の こうげき！ ${target.name}に ${dmg} のダメージ`);
   if (target.curHp <= 0) { target.dead = true; log(`${target.name}は たおれた…`); }
   renderParty();
-  await wait(500);
+  await wait(320);
   if (BT.party.every(m => m.dead)) return partyWipe();
   BT.turnLock = false; setCommands(true);
 }
@@ -790,7 +987,7 @@ async function doItem() {
   BT.party.forEach(m => { if (!m.dead) m.curHp = Math.min(m.maxHp, m.curHp + 20); });
   log("どうぐ「ほしのしずく」を つかった！ 全員20かいふく");
   renderParty();
-  await wait(500);
+  await wait(320);
   await enemyTurn();
 }
 
@@ -798,11 +995,11 @@ async function doRun() {
   BT.turnLock = true; setCommands(false);
   if (Math.random() < 0.7) {
     log("うまく にげだした！");
-    await wait(700);
+    await wait(500);
     show("worldmap");
   } else {
     log("にげられなかった！");
-    await wait(500);
+    await wait(320);
     await enemyTurn();
   }
 }
@@ -815,7 +1012,7 @@ function enemyDefeated() {
   if (!save.cleared.includes(currentStar.id)) save.cleared.push(currentStar.id);
   persist();
   // 勝利後はスカウトチャンス画面へ
-  setTimeout(() => offerScout(), 900);
+  setTimeout(() => offerScout(), 700);
 }
 
 function partyWipe() {
@@ -842,8 +1039,9 @@ function pickCandidate() {
 function scoutInfo(ally) {
   const r = RARITY[ally.rarity] || RARITY[2];
   let rate = r.baseRate;
-  if (stageBonus && stageBonus.type === "scoutRate") rate += 0.05;
-  return { cost: r.cost, rate: Math.min(0.99, rate), boosted: !!(stageBonus && stageBonus.type === "scoutRate") };
+  const hasBonus = stageBonus && stageBonus.type === "scoutRate";
+  if (hasBonus) rate += stageBonus.boosted ? 0.08 : 0.05; // ミドリ星人で強化
+  return { cost: r.cost, rate: Math.min(0.99, rate), boosted: !!hasBonus };
 }
 
 // 図鑑：発見済み登録
@@ -918,12 +1116,14 @@ function showScoutResult(ally, kind, cost) {
     const joined = save.party.includes(ally.id);
     box.innerHTML = `
       <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
+      <div class="scout-voice ok">「${ally.voice.ok}」</div>
       <div class="scout-msg" style="color:var(--ok)">${ally.name} が なかまになった！</div>
       <div class="scout-sub">💎${cost} 消費 ／ 図鑑に「加入」を記録${joined ? "" : "（パーティ入れ替え）"}</div>
     `;
   } else {
     box.innerHTML = `
       <div class="scout-face">💨</div>
+      <div class="scout-voice ng">「${ally.voice.ng}」</div>
       <div class="scout-msg">スカウト失敗…</div>
       <div class="scout-sub">${ally.name} は 去っていった（図鑑には「発見」を記録）</div>
     `;
@@ -936,9 +1136,10 @@ function showScoutResult(ally, kind, cost) {
 function skipScout(ally) {
   document.getElementById("scout-title").textContent = "スルー";
   document.getElementById("scout-result").innerHTML = `
-    <div class="scout-face">👋</div>
-    <div class="scout-msg">またどこかで…</div>
-    <div class="scout-sub">${ally ? ally.name : "仲間候補"} を 見送った（図鑑には「発見」を記録）</div>
+    <div class="scout-face">${ally ? faceHTML(ally.face, `characters/${ally.img}`) : "👋"}</div>
+    <div class="scout-voice bye">「${ally ? ally.voice.bye : "またどこかで会おう"}」</div>
+    <div class="scout-msg">見送った</div>
+    <div class="scout-sub">${ally ? ally.name : "仲間候補"} とは また どこかで（図鑑には「発見」を記録）</div>
   `;
   document.getElementById("scout-actions").innerHTML =
     `<button class="btn btn-primary" data-action="scout-continue">つづける</button>`;

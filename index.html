@@ -23,15 +23,89 @@
     <!-- ============ タイトル画面 ============ -->
     <section id="screen-title" class="screen active">
       <div class="title-bg"></div>
+
+      <!-- 上部コーナー：お知らせ / プレゼント -->
+      <div class="title-top">
+        <button class="title-corner" data-action="news"><span class="tc-badge">3</span><span class="tc-icon">📢</span><small>お知らせ</small></button>
+        <button class="title-corner" data-action="gift"><span class="tc-badge">3</span><span class="tc-icon">🎁</span><small>プレゼント</small></button>
+      </div>
+
       <div class="title-inner">
         <h1 class="game-title">銀河はぐれ団</h1>
-        <p class="game-subtitle">- GINGA HAGUREDAN -</p>
-        <div class="title-menu">
-          <button class="btn btn-primary" data-action="start-game">はじめる</button>
-          <button class="btn" data-action="open-dex-title">図鑑</button>
-          <button class="btn btn-ghost" data-action="reset-save">データ消去</button>
+
+        <!-- ヒーロー：n‿n 顔の宇宙船 -->
+        <div class="title-hero">
+          <div class="hero-compass">✦</div>
+          <div class="hero-ship">
+            <span class="ship-flag">🚩</span>
+            <div class="ship-body">
+              <div class="ship-screen">
+                <span class="ship-eye">n</span><span class="ship-smile"></span><span class="ship-eye">n</span>
+              </div>
+              <span class="ship-port p1"></span><span class="ship-port p2"></span><span class="ship-port p3"></span>
+            </div>
+            <div class="ship-fin"></div>
+          </div>
         </div>
-        <p class="title-hint">タップしてはじめよう</p>
+
+        <!-- クルー紹介 -->
+        <div class="crew-note">仲間をスカウトして 図鑑に登録しよう！</div>
+        <div class="crew-strip">
+          <div class="crew-card"><div class="crew-face">🐶</div><div class="crew-name">ハチロー <b>⭐</b></div><div class="crew-role">パイロット見習い</div></div>
+          <div class="crew-card"><div class="crew-face">👧</div><div class="crew-name">モモ <b class="pink">★</b></div><div class="crew-role">メカニック</div></div>
+          <div class="crew-card"><div class="crew-face">🐱</div><div class="crew-name">ジロー <b>★</b></div><div class="crew-role">元・宇宙海賊</div></div>
+          <div class="crew-card"><div class="crew-face">🐸</div><div class="crew-name">ゲロ <b class="green">★</b></div><div class="crew-role">記録係</div></div>
+        </div>
+
+        <!-- メニュー -->
+        <div class="title-menu">
+          <button class="btn btn-start" data-action="start-game"><span>🚀</span> スタート</button>
+          <button class="btn btn-continue" data-action="continue"><span>🗒️</span> つづきから</button>
+          <div class="title-subrow">
+            <button class="btn sub" data-action="open-dex-title">📖 図鑑</button>
+            <button class="btn sub" data-action="party">👥 パーティ</button>
+            <button class="btn sub" data-action="settings">⚙️ 設定</button>
+          </div>
+        </div>
+
+        <!-- 冒険の流れ -->
+        <div class="flow-bar">
+          <div class="flow-title">✦ 冒険の流れ ✦</div>
+          <div class="flow-steps">
+            <span class="flow-step">🚀<small>シューティング</small></span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">⚔️<small>RPG戦闘</small></span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">🤝<small>スカウト</small></span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">📖<small>図鑑登録</small></span>
+          </div>
+        </div>
+      </div>
+      <div class="title-ver">Ver.1.0.0</div>
+    </section>
+
+    <!-- ============ パーティ ============ -->
+    <section id="screen-party" class="screen">
+      <header class="topbar">
+        <button class="btn-icon" data-action="close-sub">←</button>
+        <span class="topbar-title">パーティ</span>
+        <span style="width:40px"></span>
+      </header>
+      <div id="party-list" class="party-list"></div>
+    </section>
+
+    <!-- ============ 設定 ============ -->
+    <section id="screen-settings" class="screen">
+      <header class="topbar">
+        <button class="btn-icon" data-action="close-sub">←</button>
+        <span class="topbar-title">設定</span>
+        <span style="width:40px"></span>
+      </header>
+      <div class="settings-body">
+        <div class="settings-row"><span>バージョン</span><span>Ver.1.0.0</span></div>
+        <div class="settings-row"><span>所持クリスタル</span><span id="settings-crystals" class="crystal-counter">💎 0</span></div>
+        <button class="btn btn-ghost" data-action="reset-save">データ消去</button>
       </div>
     </section>
 
@@ -45,6 +119,16 @@
       <div id="worldmap-space"></div>
       <div class="worldmap-overlay">
         <div id="star-list" class="star-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ 航行前：仲間効果 ============ -->
+    <section id="screen-preflight" class="screen">
+      <div class="preflight-inner">
+        <div class="preflight-star" id="preflight-star"></div>
+        <h2 class="preflight-title">今回の航行効果</h2>
+        <div class="preflight-list" id="preflight-list"></div>
+        <button class="btn btn-primary" data-action="launch">航行開始</button>
       </div>
     </section>
 
@@ -67,6 +151,7 @@
     <section id="screen-result" class="screen">
       <div class="result-inner">
         <h2 class="result-title" id="result-title">航行 結果</h2>
+        <div class="result-rank" id="result-rank"></div>
         <div class="result-stats" id="result-stats"></div>
         <div class="result-mission" id="result-mission"></div>
         <div class="result-bonus" id="result-bonus"></div>
@@ -82,6 +167,7 @@
             <div class="enemy-sprite" id="enemy-sprite">👾</div>
             <div class="enemy-name" id="enemy-name">エイリアン</div>
             <div class="hpbar enemy-hpbar"><div id="enemy-hp-fill"></div></div>
+            <div class="enemy-hp-text" id="enemy-hp-text"></div>
           </div>
         </div>
         <div class="party-area" id="party-area"></div>
