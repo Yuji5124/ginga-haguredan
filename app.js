@@ -110,7 +110,7 @@ function createThreeFallback() {
         const baseR = o.userData?.r || o.geometry?.radius || (type ? 0.7 : 0.45);
         const r = Math.max(2, baseR * (type === "bullet" ? 5 : 10));
         const color = type === "rock" ? "#a48d72"
-          : type === "crystal" ? (o.userData.kind === "heal" ? "#66ff99" : "#c266ff")
+          : type === "crystal" ? (o.userData.kind === "heal" ? "#66ff99" : (o.userData.kind === "big" ? "#ffd35a" : "#66e8ff"))
           : type === "enemy" ? "#ff5577"
           : type === "bullet" ? "#66ccff"
           : colorToCss(o.material?.color, "#66e0ff");
@@ -153,15 +153,15 @@ function createThreeFallback() {
 // レア度ごとのスカウト設定（必要クリスタル / 基本成功率）。レア度1〜10
 const RARITY = {
   1:  { cost: 10,  baseRate: 0.85 },
-  2:  { cost: 20,  baseRate: 0.75 },
-  3:  { cost: 35,  baseRate: 0.65 },
-  4:  { cost: 55,  baseRate: 0.55 },
-  5:  { cost: 80,  baseRate: 0.48 },
-  6:  { cost: 110, baseRate: 0.42 },
-  7:  { cost: 150, baseRate: 0.36 },
-  8:  { cost: 200, baseRate: 0.30 },
-  9:  { cost: 280, baseRate: 0.24 },
-  10: { cost: 400, baseRate: 0.18 },
+  2:  { cost: 14,  baseRate: 0.75 },
+  3:  { cost: 18,  baseRate: 0.65 },
+  4:  { cost: 25,  baseRate: 0.55 },
+  5:  { cost: 32,  baseRate: 0.48 },
+  6:  { cost: 40,  baseRate: 0.42 },
+  7:  { cost: 50,  baseRate: 0.36 },
+  8:  { cost: 60,  baseRate: 0.30 },
+  9:  { cost: 70,  baseRate: 0.24 },
+  10: { cost: 80,  baseRate: 0.18 },
 };
 
 // 航行ボーナスの定義（8種）。レア度に応じて各仲間へ自動割当
@@ -170,7 +170,7 @@ const NAV_DEFS = {
   crystalUp:    { type: "crystalUp",    label: "クリスタル獲得 +10%" },
   rockGuard:    { type: "rockGuard",    label: "隕石ダメージ 低確率で無効" },
   killCrystal:  { type: "killCrystal",  label: "敵撃破で +1💎" },
-  bigUp:        { type: "bigUp",        label: "大クリスタル +10" },
+  bigUp:        { type: "bigUp",        label: "大クリスタル +2" },
   shield:       { type: "shield",       label: "開始時バリア ×1" },
   slow:         { type: "slow",         label: "隕石スピード -10%" },
   missionBoost: { type: "missionBoost", label: "ミッション報酬 強化" },
@@ -290,15 +290,44 @@ const RAW_ALLIES = [
   [100,"はぐれ飛行船オルカ号","🚀","4人乗れる小型飛行船。意思を持つ仲間","全体の回避・移動・支援。終盤で覚醒する"],
 ];
 
-// RAW から実データへ展開（レア度・ステータス・航行効果・ボイスを自動算出）
+// 戦闘スキル定義（8種）。kind で効果を分岐
+const SKILLS = {
+  slash:  { name: "スラッシュ",   kind: "atk1",        power: 1.5, desc: "単体に強攻撃" },
+  burst:  { name: "バースト",     kind: "atkAll",      power: 0.85, desc: "敵全体に攻撃" },
+  heal:   { name: "ヒール",       kind: "heal",        power: 26,  desc: "味方1人を回復" },
+  guard:  { name: "ガードアップ", kind: "defUp",       power: 8,   desc: "味方全体の防御UP" },
+  weaken: { name: "ウィークン",   kind: "enemyAtkDown",power: 0.65, desc: "敵の攻撃力ダウン" },
+  crit:   { name: "クリティカル", kind: "crit",        power: 2.4, desc: "会心の一撃" },
+  cheer:  { name: "エール",       kind: "buffNext",    power: 1.5, desc: "全体の次の攻撃強化" },
+  gamble: { name: "いちかばちか", kind: "bigRandom",   power: 4.0, desc: "低確率で大ダメージ" },
+};
+const SKILL_KEYS = Object.keys(SKILLS);
+
+// パッシブ定義。戦闘開始時にステータスへ反映
+const PASSIVES = [
+  { id: "tough", label: "打たれ強い（防御+2）",   def: 2 },
+  { id: "power", label: "攻撃的（攻撃+3）",        atk: 3 },
+  { id: "swift", label: "俊敏（素早さ+4）",        spd: 4 },
+  { id: "vital", label: "生命力（最大HP+10）",     hp: 10 },
+  { id: "lucky", label: "幸運（会心率+12%）",      crit: 0.12 },
+];
+
+// RAW から実データへ展開（レア度・ステータス・スキル・パッシブ・航行効果・ボイスを自動算出）
 const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
   const rarity = Math.floor((no - 1) / 10) + 1;
   const id = "c" + no;
+  const skillKey = SKILL_KEYS[(no - 1) % SKILL_KEYS.length];
   return {
     id, name, face, img: id, rarity, setting, skill,
     tag: skill,                         // スカウト画面のタグ欄に「得意なこと」を表示
     hp: 30 + rarity * 14,               // レア度でHP自動算出
     atk: 8 + rarity * 4,                // レア度で攻撃力自動算出
+    def: 2 + Math.round(rarity * 1.4),  // 防御
+    spd: 8 + rarity * 2 + (no % 5),     // 素早さ
+    level: 1 + Math.floor(rarity / 2),  // レベル（表示は控えめ）
+    skillKey,
+    bskill: SKILLS[skillKey],           // 戦闘スキル（シグネチャ）
+    passive: PASSIVES[(no - 1) % PASSIVES.length],
     navBonus: NAV_DEFS[NAV_ORDER[(no - 1) % NAV_ORDER.length]],
     voice: voiceForRarity(rarity),
   };
@@ -367,15 +396,23 @@ const ENEMIES = {};
 RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const id = "s" + stage, eid = "e" + stage;
   const boss = stage === 20;
-  const hp = Math.round((22 + stage * 14) * (boss ? 1.7 : 1));
-  const atk = Math.round((5 + stage * 1.8) * (boss ? 1.4 : 1));
-  const reward = boss ? 300 : 20 + stage * 10;
+  // 序盤はゆるく、中盤以降は曲線的に強くなる（仲間集め/スカウトを促す）
+  const hp = Math.round((20 + stage * 12 + stage * stage * 1.1) * (boss ? 1.6 : 1));
+  const atk = Math.round((4 + stage * 1.6 + stage * stage * 0.12) * (boss ? 1.4 : 1));
+  // 推奨戦力と危険度（ワールドマップ表示用）
+  const danger = Math.min(5, Math.ceil(stage / 4));
+  const recommend = stage <= 1 ? "仲間1人〜"
+    : stage <= 3 ? "仲間2人以上"
+    : stage <= 6 ? "仲間3人以上"
+    : stage <= 12 ? "4人編成"
+    : "4人＋回復/スキル";
+  const reward = boss ? 80 : 3 + stage * 2;
   const center = Math.ceil(stage / 2);
   const rMin = Math.max(1, center - 1);
   const rMax = Math.min(10, center + 1);
   const theme = stageTheme(stage);
   ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss };
-  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme });
+  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme, danger, recommend });
 });
 
 // ラスボスの登場セリフ
@@ -386,11 +423,21 @@ const allyById = (id) => ALLIES.find(a => a.id === id);
 // 航行ミッション（開始時に1つ提示。成功で戦闘/スカウト用ボーナス）
 // bonus.type: enemyHp(-10%) / scoutRate(+5%) / crystal(+20) / allyHp(+1)
 const MISSIONS = [
-  { id: "c5",    type: "crystals", goal: 5,  desc: "クリスタルを5個 集めろ",      bonus: { type: "crystal",   label: "クリスタル +20" } },
+  { id: "c5",    type: "crystals", goal: 5,  desc: "クリスタルを5個 集めろ",      bonus: { type: "crystal",   label: "クリスタル +12" } },
   { id: "nohit", type: "nohit",    goal: 10, desc: "10秒間 ノーダメージで耐えろ", bonus: { type: "allyHp",    label: "味方HP +1" } },
   { id: "big1",  type: "big",      goal: 1,  desc: "大クリスタルを1個 拾え",      bonus: { type: "scoutRate", label: "スカウト成功率 +5%" } },
   { id: "e3",    type: "enemies",  goal: 3,  desc: "敵を3体 倒せ",                bonus: { type: "enemyHp",   label: "敵HP -10%" } },
 ];
+
+const ITEM_DEFS = {
+  smallHeal:   { id: "smallHeal",   name: "小回復カプセル", price: 10, icon: "🧪", desc: "戦闘中、HPが少ない味方1人を20回復", use: "battle" },
+  allHeal:     { id: "allHeal",     name: "全体回復パック", price: 25, icon: "🎒", desc: "戦闘中、味方全員のHPを10回復", use: "battle" },
+  barrierOrb:  { id: "barrierOrb",  name: "バリアオーブ",   price: 30, icon: "🟣", desc: "戦闘中、次に受けるダメージを1軽減", use: "battle" },
+  scoutBeacon: { id: "scoutBeacon", name: "スカウトビーコン", price: 40, icon: "📡", desc: "次のスカウト挑戦の成功率 +10%", use: "auto" },
+  spareEnergy: { id: "spareEnergy", name: "予備エネルギー", price: 20, icon: "🔋", desc: "次の航行開始時、飛行船HP +1", use: "auto" },
+};
+const ITEM_ORDER = ["smallHeal", "allHeal", "barrierOrb", "scoutBeacon", "spareEnergy"];
+const defaultItems = () => Object.fromEntries(ITEM_ORDER.map(id => [id, 0]));
 
 // 直前の航行で獲得したボーナス（次の戦闘/スカウトに反映）。なければ null
 let stageBonus = null;
@@ -409,7 +456,7 @@ function computeNavEffects(partyIds) {
       case "crystalUp":    e.crystalMul *= 1.10; break;
       case "rockGuard":    e.rockGuardChance = Math.min(0.6, e.rockGuardChance + 0.20); break;
       case "killCrystal":  e.killBonus += 1; break;
-      case "bigUp":        e.bigBonus += 10; break;
+      case "bigUp":        e.bigBonus += 2; break;
       case "shield":       e.shields += 1; break;
       case "slow":         e.hazardSpeedMul *= 0.90; break;
       case "missionBoost": e.missionBoost = true; break;
@@ -434,6 +481,7 @@ const defaultSave = () => ({
   party: [STARTER_ID],          // 初期メンバー
   discovered: [STARTER_ID],     // 図鑑：発見済み（出会った）仲間ID
   recruited: [STARTER_ID],      // 図鑑：加入済み（スカウト成功）仲間ID
+  items: defaultItems(),         // ショップで購入したアイテム所持数
 });
 
 let save = loadSave();
@@ -457,6 +505,7 @@ function loadSave() {
       if (data.party.length === 0) data.party = [STARTER_ID];
       if (!data.discovered.includes(STARTER_ID)) data.discovered.push(STARTER_ID);
       if (!data.recruited.includes(STARTER_ID)) data.recruited.push(STARTER_ID);
+      data.items = Object.assign(defaultItems(), data.items || {});
       return data;
     }
   } catch (e) { console.warn("save load failed", e); }
@@ -520,6 +569,7 @@ function onEnter(name) {
   if (name === "worldmap") { startWorldmap(); renderStarList(); refreshCrystals(); }
   else { stopWorldmap(); }
   if (name === "dex") renderDex();
+  if (name === "shop") renderShop();
   if (name === "party") renderPartyScreen();
   if (name === "settings") document.getElementById("settings-crystals").textContent = `💎 ${save.crystals}`;
 }
@@ -536,6 +586,55 @@ function toast(msg) {
 
 function refreshCrystals() {
   document.getElementById("wm-crystals").textContent = save.crystals;
+  const shopCrystals = document.getElementById("shop-crystals");
+  if (shopCrystals) shopCrystals.textContent = `💎 ${save.crystals}`;
+}
+
+function itemCount(id) {
+  save.items = Object.assign(defaultItems(), save.items || {});
+  return save.items[id] || 0;
+}
+function changeItem(id, delta) {
+  save.items = Object.assign(defaultItems(), save.items || {});
+  save.items[id] = Math.max(0, (save.items[id] || 0) + delta);
+}
+function consumeItem(id) {
+  if (itemCount(id) <= 0) return false;
+  changeItem(id, -1);
+  persist();
+  return true;
+}
+
+function renderShop() {
+  const list = document.getElementById("shop-list");
+  if (!list) return;
+  refreshCrystals();
+  list.innerHTML = ITEM_ORDER.map(id => {
+    const item = ITEM_DEFS[id];
+    const count = itemCount(id);
+    const enough = save.crystals >= item.price;
+    return `
+      <div class="shop-row ${enough ? "" : "short"}">
+        <div class="shop-icon">${item.icon}</div>
+        <div class="shop-info">
+          <div class="shop-name">${item.name}</div>
+          <div class="shop-desc">${item.desc}</div>
+          <div class="shop-owned">所持 ×${count}</div>
+        </div>
+        <button class="btn shop-buy" data-buy-item="${id}" ${enough ? "" : "disabled"}>💎${item.price}</button>
+      </div>`;
+  }).join("");
+}
+
+function buyItem(id) {
+  const item = ITEM_DEFS[id];
+  if (!item) return;
+  if (save.crystals < item.price) { toast("クリスタルが足りない"); return; }
+  save.crystals -= item.price;
+  changeItem(id, 1);
+  persist();
+  renderShop();
+  toast(`${item.name}を買った`);
 }
 
 // -------------------------------------------------------------
@@ -736,7 +835,10 @@ function renderPartyScreen() {
         <div class="pr-info">
           <div class="pr-name">${a.name} <span class="rarity">★${a.rarity}</span></div>
           <div class="pr-sub">${a.setting}</div>
-          <div class="pr-sub">HP${a.hp} ／ こうげき${a.atk} ／ 得意：${a.skill}</div>
+          <div class="pr-sub">Lv.${a.level} ／ HP${a.hp} ／ 攻${a.atk} ／ 防${a.def} ／ 速${a.spd}</div>
+          <div class="pr-sub">スキル：${a.bskill.name}（${a.bskill.desc}）</div>
+          <div class="pr-sub">パッシブ：${a.passive.label}</div>
+          <div class="pr-sub">得意：${a.skill}</div>
           <div class="pr-nav">航行：${a.navBonus.label}</div>
         </div>
       </div>`;
@@ -755,6 +857,16 @@ document.querySelector("#screen-settings").addEventListener("click", (e) => {
       document.getElementById("settings-crystals").textContent = `💎 ${save.crystals}`;
     }
   }
+});
+
+document.querySelectorAll('[data-action="open-shop"]').forEach(b =>
+  b.addEventListener("click", () => show("shop")));
+
+document.querySelector("#screen-shop").addEventListener("click", (e) => {
+  const actionEl = e.target.closest("[data-action]");
+  if (actionEl?.dataset.action === "close-shop") return show("worldmap");
+  const buyEl = e.target.closest("[data-buy-item]");
+  if (buyEl) buyItem(buyEl.dataset.buyItem);
 });
 
 // -------------------------------------------------------------
@@ -900,12 +1012,17 @@ function renderStarList() {
       badgeHtml = cleared ? '<span class="star-badge">クリア済</span>' : `<span class="star-badge" style="background:rgba(110,200,255,.18);color:var(--accent)">💎${star.reward}</span>`;
     }
 
+    const dangerStars = "★".repeat(star.danger) + "☆".repeat(5 - star.danger);
+    const recoHtml = (!star.boss || (star.boss && !heroGate))
+      ? `<div class="star-reco">推奨：${star.recommend}　危険度：<span class="star-danger">${dangerStars}</span>${cleared ? "　🔁再挑戦OK" : ""}</div>`
+      : "";
     card.innerHTML = `
       <div class="star-route"></div>
       <div class="star-icon">${star.icon}</div>
       <div class="star-info">
         <div class="star-name">${star.boss ? "👑 " : ""}${star.stage}. ${star.name}</div>
         <div class="star-desc">${descHtml}</div>
+        ${recoHtml}
       </div>
       ${badgeHtml}
     `;
@@ -954,7 +1071,7 @@ document.querySelector("#screen-preflight").addEventListener("click", (e) => {
 const STAGE_TIME = 24; // シューティング1ステージの秒数
 
 const MAX_HP = 3;
-const SHIP_R = 0.58; // 飛行船の当たり判定半径（縦型フライト用）
+const SHIP_R = 0.34; // 飛行船の当たり判定半径（見た目より小さめ）
 const FLIGHT_X_LIMIT = 5.2;
 const FLIGHT_SHIP_Y = -3.15;
 const FLIGHT_SPAWN_Y = 4.55;
@@ -972,7 +1089,7 @@ const SH = {
   renderer: null, scene: null, camera: null, raf: null,
   ship: null, wingL: null, wingR: null, stageBg: null,
   bullets: [], rocks: [], enemies: [], crystals: [],
-  hp: MAX_HP, gained: 0, timeLeft: STAGE_TIME, lastShot: 0, lastSpawn: 0,
+  hp: MAX_HP, maxHp: MAX_HP, gained: 0, timeLeft: STAGE_TIME, lastShot: 0, lastSpawn: 0,
   running: false, targetX: 0, targetY: 0, startT: 0,
   keyDir: 0, lastManualShot: 0,
   // アーケードHUD：スコア＆チェイン＆ボム
@@ -982,7 +1099,15 @@ const SH = {
   mission: null, missionProgress: 0, missionDone: false, missionFailed: false,
   // 仲間の航行効果
   nav: null, shieldLeft: 0,
+  // 被弾無敵時間（i-frames）
+  invulnUntil: 0,
 };
+const INVULN_MS = 800; // 被弾後の無敵時間
+// クリスタル獲得量（経済バランスはここで一括調整）
+const CRYSTAL_NORMAL_MIN = 1;
+const CRYSTAL_NORMAL_MAX = 2;
+const CRYSTAL_BIG_MIN = 8;
+const CRYSTAL_BIG_MAX = 10;
 
 const CHAIN_WINDOW = 2600; // チェイン継続時間(ms)
 const SPEECH_LINES = [
@@ -990,6 +1115,7 @@ const SPEECH_LINES = [
   "敵が来るぞ、気をつけろ！", "まだまだ いけるさ！", "次の星まで あと少し！",
 ];
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
 function initShooting() {
   const host = document.getElementById("shooting-canvas");
@@ -1223,29 +1349,32 @@ function spawnRock(red = false) {
     })
   );
   m.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
-  m.userData = { type: "rock", r, spin: (Math.random() - 0.5) * 0.08, dmg: red ? 2 : 1 };
+  m.userData = { type: "rock", r, hitR: r * 0.52, spin: (Math.random() - 0.5) * 0.08, dmg: red ? 2 : 1 };
   SH.scene.add(m); SH.rocks.push(m);
 }
 
-// kind: "normal"(+5💎) / "big"(+20💎) / "heal"(HP+1)
+// kind: "normal"(+1〜2💎) / "big"(+8〜10💎) / "heal"(HP+1)
 function spawnCrystal(kind = "normal") {
   let geo, mat, r;
   if (kind === "big") {
-    geo = new THREE.OctahedronGeometry(1.05, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0xd86cff, emissive: 0x7a22aa, metalness: 0.5 });
-    r = 1.05;
+    // 大クリスタル：金色・大きい（明確に別物）
+    geo = new THREE.OctahedronGeometry(1.35, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0xffd24a, emissive: 0xffae00, emissiveIntensity: 0.9, metalness: 0.6 });
+    r = 1.3;
   } else if (kind === "heal") {
-    geo = new THREE.OctahedronGeometry(0.78, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0x66ff99, emissive: 0x22aa55, metalness: 0.3 });
-    r = 0.78;
+    // 回復クリスタル：緑・ハート風（やや大きめ）
+    geo = new THREE.OctahedronGeometry(0.92, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x55ff8c, emissive: 0x22dd66, emissiveIntensity: 0.9, metalness: 0.2 });
+    r = 0.9;
   } else {
-    geo = new THREE.OctahedronGeometry(0.72, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0x66e8ff, emissive: 0x2288cc, metalness: 0.4 });
-    r = 0.72;
+    // 通常クリスタル：水色・しっかり光る
+    geo = new THREE.OctahedronGeometry(0.85, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x7df0ff, emissive: 0x33c8ff, emissiveIntensity: 0.85, metalness: 0.4 });
+    r = 0.82;
   }
   const m = new THREE.Mesh(geo, mat);
   m.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
-  m.userData = { type: "crystal", kind, r };
+  m.userData = { type: "crystal", kind, r, hitR: r + 0.15 };
   SH.scene.add(m); SH.crystals.push(m);
 }
 function spawnEnemy() {
@@ -1262,7 +1391,7 @@ function spawnEnemy() {
   eye.position.z = 0.12;
   g.add(eye);
   g.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
-  g.userData = { type: "enemy", r: 1.05, hp: 2 };
+  g.userData = { type: "enemy", r: 1.05, hitR: 0.76, hp: 2 };
   SH.scene.add(g); SH.enemies.push(g);
 }
 // 自機の青い極太レーザー＋僚機の細い弾
@@ -1296,7 +1425,9 @@ function startShooting(star) {
   // リセット
   [...SH.bullets, ...SH.rocks, ...SH.enemies, ...SH.crystals].forEach(o => SH.scene.remove(o));
   SH.bullets = []; SH.rocks = []; SH.enemies = []; SH.crystals = [];
-  SH.hp = MAX_HP; SH.gained = 0; SH.timeLeft = STAGE_TIME;
+  const spareEnergy = consumeItem("spareEnergy");
+  SH.maxHp = MAX_HP + (spareEnergy ? 1 : 0);
+  SH.hp = SH.maxHp; SH.gained = 0; SH.timeLeft = STAGE_TIME;
   SH.ship.position.set(0, FLIGHT_SHIP_Y, FLIGHT_OBJECT_Z); SH.targetX = 0; SH.targetY = FLIGHT_SHIP_Y;
   SH.lastSpawn = 0; SH.lastShot = 0; SH.running = true;
   SH.keyDir = 0; SH.lastManualShot = 0;
@@ -1328,6 +1459,7 @@ function startShooting(star) {
   updateMissionHUD();
   updateArcadeHUD();
   bindBomb();
+  if (spareEnergy) setTimeout(() => spawnPopup("予備エネルギー HP+1", "#7dffa0"), 250);
 
   const hint = document.getElementById("shooting-hint");
   hint.style.opacity = "1";
@@ -1373,11 +1505,11 @@ function updateShooting(dt, now) {
   // スポーン（種類ごとに出現率を設定）
   if (now - SH.lastSpawn > 650) {
     const r = Math.random();
-    if (r < 0.27)      spawnRock(false);   // 通常隕石
-    else if (r < 0.35) spawnRock(true);    // 赤い隕石（低確率）
-    else if (r < 0.64) spawnCrystal("normal");
-    else if (r < 0.71) spawnCrystal("big");  // 大クリスタル（低確率）
-    else if (r < 0.78) spawnCrystal("heal"); // 回復クリスタル
+    if (r < 0.30)      spawnRock(false);   // 通常隕石
+    else if (r < 0.40) spawnRock(true);    // 赤い隕石（低確率）
+    else if (r < 0.60) spawnCrystal("normal");
+    else if (r < 0.64) spawnCrystal("big");  // 大クリスタル（かなり低確率）
+    else if (r < 0.68) spawnCrystal("heal"); // 回復クリスタル
     else               spawnEnemy();
     SH.lastSpawn = now;
   }
@@ -1423,9 +1555,10 @@ function updateShooting(dt, now) {
         SH.scene.remove(SH.bullets[j]); SH.bullets.splice(j, 1);
         e.userData.hp--;
         if (e.userData.hp <= 0) {
-          // コドラゴがいると撃破クリスタル +killBonus
-          SH.gained += 8 + SH.nav.killBonus; SH.kills++; bumpMission("kill");
+          // 撃破ボーナスは小さく。航行効果があると +1 ずつ上乗せ
+          SH.gained += 1 + SH.nav.killBonus; SH.kills++; bumpMission("kill");
           addScore(300); bumpChain(performance.now());
+          flashScreen("#ffd070"); spawnPopup("💥", "#ffcf66"); // 撃破の小演出
           updateShootingHUD();
           SH.scene.remove(e); SH.enemies.splice(i, 1);
         }
@@ -1478,25 +1611,30 @@ function useBomb() {
 }
 
 function hitShip(o) {
-  return o.position.distanceTo(SH.ship.position) < (o.userData.r + SHIP_R);
+  return o.position.distanceTo(SH.ship.position) < ((o.userData.hitR ?? o.userData.r) + SHIP_R);
 }
 function damageShip(amount = 1, isRock = false) {
+  // 被弾無敵時間中は無効
+  if (performance.now() < SH.invulnUntil) return;
   // おばけ：隕石ダメージを低確率で無効化
   if (isRock && SH.nav.rockGuardChance > 0 && Math.random() < SH.nav.rockGuardChance) {
-    flashScreen("#9cf"); // ガード演出
-    return;
+    flashScreen("#9cf"); spawnPopup("ガード！", "#9cf"); return;
   }
   // タコすけ：開始時バリアで1回ぶん肩代わり
   if (SH.shieldLeft > 0) {
     SH.shieldLeft--;
-    flashScreen("#9cf");
+    flashScreen("#9cf"); spawnPopup("バリア！", "#9cf");
+    SH.invulnUntil = performance.now() + INVULN_MS;
     updateShootingHUD();
     return;
   }
-  SH.hp = Math.max(1, SH.hp - amount);
+  SH.hp = Math.max(0, SH.hp - amount);
   SH.score = Math.max(0, SH.score - amount * 120);
   SH.dmgTaken += amount;
   SH.chain = 0; // 被弾でチェイン途切れ
+  SH.invulnUntil = performance.now() + INVULN_MS; // 0.8秒の無敵
+  spawnPopup(`-${amount}❤`, "#f66");
+  showHitRing();
   // ノーダメージ系ミッションは被弾で失敗
   if (SH.mission && SH.mission.type === "nohit" && !SH.missionDone) SH.missionFailed = true;
   flashScreen("#f55");
@@ -1505,20 +1643,46 @@ function damageShip(amount = 1, isRock = false) {
   updateMissionHUD();
 }
 
-// クリスタル取得（種類ごとに効果。ねこ船長=獲得量+%、スターちゃん=大クリ価値+）
+// 取得/被弾ポップ（飛行船付近に浮かぶ）
+function spawnPopup(text, color) {
+  const host = document.getElementById("shooting-canvas");
+  if (!host) return;
+  const el = document.createElement("div");
+  el.className = "sh-popup";
+  el.textContent = text;
+  el.style.color = color;
+  el.style.left = (45 + Math.random() * 10) + "%";
+  el.style.bottom = (24 + Math.random() * 8) + "%";
+  host.appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+// 当たり判定が分かる円形エフェクト
+function showHitRing() {
+  const host = document.getElementById("shooting-canvas");
+  if (!host) return;
+  const r = document.createElement("div");
+  r.className = "sh-hitring";
+  host.appendChild(r);
+  setTimeout(() => r.remove(), 500);
+}
+
+// クリスタル取得（種類ごとに効果。航行ボーナスで獲得量を少し底上げ）
 function collectCrystal(kind) {
   const mul = SH.nav.crystalMul;
   const now = performance.now();
   if (kind === "big") {
-    SH.gained += Math.round((20 + SH.nav.bigBonus) * mul); SH.bigPicked++;
+    const amt = Math.round((randInt(CRYSTAL_BIG_MIN, CRYSTAL_BIG_MAX) + SH.nav.bigBonus) * mul); SH.gained += amt; SH.bigPicked++;
     bumpMission("big"); bumpMission("crystal");
     addScore(500); bumpChain(now);
+    spawnPopup(`+${amt}💎`, "#ffd35a");
   } else if (kind === "heal") {
-    if (SH.hp < MAX_HP) { SH.hp++; flashScreen("#6f9"); }
+    if (SH.hp < SH.maxHp) { SH.hp++; flashScreen("#6f9"); spawnPopup("HP+1", "#7dffa0"); }
+    else spawnPopup("HP満タン", "#7dffa0");
     addScore(50); bumpChain(now);
   } else {
-    SH.gained += Math.round(5 * mul); bumpMission("crystal");
+    const amt = Math.max(1, Math.round(randInt(CRYSTAL_NORMAL_MIN, CRYSTAL_NORMAL_MAX) * mul)); SH.gained += amt; bumpMission("crystal");
     addScore(100); bumpChain(now);
+    spawnPopup(`+${amt}💎`, "#8fe8ff");
   }
   updateShootingHUD();
 }
@@ -1631,7 +1795,10 @@ function drawMinimap() {
   const px = (x) => (x + FLIGHT_X_LIMIT) / (FLIGHT_X_LIMIT * 2) * W;
   const py = (y) => (1 - (y - FLIGHT_DESPAWN_Y) / (FLIGHT_SPAWN_Y - FLIGHT_DESPAWN_Y)) * H;
   const dot = (x, y, color, s = 2) => { ctx.fillStyle = color; ctx.fillRect(px(x) - s / 2, py(y) - s / 2, s, s); };
-  SH.crystals.forEach(o => dot(o.position.x, o.position.y, o.userData.kind === "big" ? "#d86cff" : "#66e8ff", 3));
+  SH.crystals.forEach(o => {
+    const color = o.userData.kind === "big" ? "#ffd35a" : (o.userData.kind === "heal" ? "#66ff99" : "#66e8ff");
+    dot(o.position.x, o.position.y, color, o.userData.kind === "big" ? 4 : 3);
+  });
   SH.rocks.forEach(o => dot(o.position.x, o.position.y, "#aa7758", 3));
   SH.enemies.forEach(o => dot(o.position.x, o.position.y, "#ff5a26", 4));
   dot(SH.ship.position.x, SH.ship.position.y, "#66e0ff", 5); // 自機
@@ -1680,7 +1847,7 @@ function endShooting() {
   // 報酬：拾ったクリスタル + 到達ボーナス + ミッション(クリスタル系)ボーナス
   let reward = SH.gained;
   if (cleared) reward += currentStar.reward;
-  if (stageBonus && stageBonus.type === "crystal") reward += boosted ? 30 : 20;
+  if (stageBonus && stageBonus.type === "crystal") reward += boosted ? 18 : 12;
   save.crystals += reward;
   persist();
 
@@ -1836,7 +2003,11 @@ document.querySelector("#screen-pino").addEventListener("click", (e) => {
 // -------------------------------------------------------------
 // RPG戦闘
 // -------------------------------------------------------------
-const BT = { enemy: null, enemyHp: 0, party: [], turnLock: false, won: false };
+const BT = {
+  enemy: null, enemyHp: 0, enemyMaxHp: 0, party: [],
+  turnLock: false, won: false,
+  enemyAtkMul: 1, enemyDebuffTurns: 0, guardTurns: 0, barrier: 0, nextAttackMul: 1,
+};
 
 // ラスボス最終演出フラグ（Part2の土台）
 let isFinalBossBattle = false;
@@ -1851,16 +2022,21 @@ function startBattle(star) {
   const boosted = stageBonus && stageBonus.boosted;
   // 航行ボーナス：敵HP -10%（強化時 -15%）
   const enemyHpDown = stageBonus && stageBonus.type === "enemyHp";
-  BT.enemyHp = enemyHpDown ? Math.round(def.hp * (boosted ? 0.85 : 0.9)) : def.hp;
+  BT.enemyMaxHp = enemyHpDown ? Math.round(def.hp * (boosted ? 0.85 : 0.9)) : def.hp;
+  BT.enemyHp = BT.enemyMaxHp;
   BT.won = false;
   BT.turnLock = false;
+  BT.enemyAtkMul = 1;
+  BT.enemyDebuffTurns = 0;
+  BT.guardTurns = 0;
+  BT.barrier = 0;
+  BT.nextAttackMul = 1;
   // 航行ボーナス：味方HP +1（強化時 +2）
   const allyHpUp = stageBonus && stageBonus.type === "allyHp";
   const hpPlus = allyHpUp ? (boosted ? 2 : 1) : 0;
   BT.party = save.party.slice(0, 4).map(id => {
     const a = ALLIES.find(x => x.id === id);
-    const maxHp = a.hp + hpPlus;
-    return { ...a, curHp: maxHp, maxHp, dead: false };
+    return buildBattleMember(a, hpPlus);
   });
 
   // 敵描画＋系統・ギミック・ボス表示
@@ -1884,12 +2060,29 @@ function startBattle(star) {
   if (stageBonus && ["enemyHp", "allyHp", "scoutRate"].includes(stageBonus.type)) {
     log(`✦ 航行ボーナス：${stageBonus.label}${stageBonus.boosted ? "（強化）" : ""}`);
   }
+  renderBattleCommands("main");
   setCommands(true);
 
   // Three.js 宇宙風の戦闘背景
   initBattleScene();
   updateBattleSceneEnemy(def);
   startBattleScene();
+}
+
+function buildBattleMember(a, hpPlus = 0) {
+  const passive = a.passive || {};
+  const maxHp = a.hp + (passive.hp || 0) + hpPlus;
+  return {
+    ...a,
+    atk: a.atk + (passive.atk || 0),
+    def: a.def + (passive.def || 0),
+    spd: a.spd + (passive.spd || 0),
+    critRate: passive.crit || 0,
+    curHp: maxHp,
+    maxHp,
+    dead: false,
+    skillUsed: false,
+  };
 }
 
 function renderParty() {
@@ -1903,6 +2096,8 @@ function renderParty() {
       <div class="pm-face">${faceHTML(m.face, `characters/${m.img}`)}</div>
       <div class="pm-name">${m.name}</div>
       <div class="pm-hp">${m.curHp}/${m.maxHp}</div>
+      <div class="pm-meta">Lv.${m.level} / ★${m.rarity}</div>
+      <div class="pm-skill">${m.bskill.name}${m.skillUsed ? " 済" : ""}</div>
       <div class="hpbar pm-hpbar"><div style="width:${m.curHp/m.maxHp*100}%"></div></div>
     `;
     area.appendChild(el);
@@ -1920,18 +2115,50 @@ function log(msg) {
   el.scrollTop = el.scrollHeight;
 }
 function setCommands(on) {
-  document.querySelectorAll("#battle-commands .cmd").forEach(b => b.disabled = !on);
+  document.querySelectorAll("#battle-commands .cmd").forEach(b => {
+    b.disabled = !on || b.dataset.locked === "true";
+  });
+}
+function battleItemTotal() {
+  return ["smallHeal", "allHeal", "barrierOrb"].reduce((sum, id) => sum + itemCount(id), 0);
+}
+function skillReadyCount() {
+  return BT.party.filter(m => !m.dead && !m.skillUsed).length;
+}
+function renderBattleCommands(mode = "main") {
+  const area = document.getElementById("battle-commands");
+  if (mode === "items") {
+    area.classList.add("item-mode");
+    area.innerHTML = ["smallHeal", "allHeal", "barrierOrb"].map(id => {
+      const item = ITEM_DEFS[id];
+      const count = itemCount(id);
+      return `<button class="btn cmd battle-item-btn" data-item="${id}" data-locked="${count > 0 ? "false" : "true"}" ${count > 0 ? "" : "disabled"}>${item.icon} ${item.name}<small>×${count}</small></button>`;
+    }).join("") + `<button class="btn cmd battle-back" data-cmd="items-back">戻る</button>`;
+    return;
+  }
+  area.classList.remove("item-mode");
+  const ready = skillReadyCount();
+  area.innerHTML = `
+    <button class="btn cmd" data-cmd="fight">たたかう</button>
+    <button class="btn cmd" data-cmd="skill" data-locked="${ready ? "false" : "true"}" ${ready ? "" : "disabled"}>スキル <small>${ready}</small></button>
+    <button class="btn cmd" data-cmd="item">どうぐ <small>${battleItemTotal()}</small></button>
+    <button class="btn cmd" data-cmd="run">にげる</button>
+  `;
 }
 function setEnemyHpBar() {
   const hp = Math.max(0, BT.enemyHp);
-  document.getElementById("enemy-hp-fill").style.width = `${hp / BT.enemy.hp * 100}%`;
+  const maxHp = BT.enemyMaxHp || BT.enemy.hp;
+  document.getElementById("enemy-hp-fill").style.width = `${hp / maxHp * 100}%`;
   const txt = document.getElementById("enemy-hp-text");
-  if (txt) txt.textContent = `HP ${hp} / ${BT.enemy.hp}`;
+  if (txt) txt.textContent = `HP ${hp} / ${maxHp}`;
 }
 
 document.getElementById("battle-commands").addEventListener("click", (e) => {
-  const cmd = e.target.dataset.cmd;
-  if (!cmd || BT.turnLock) return;
+  const btn = e.target.closest("[data-cmd], [data-item]");
+  if (!btn || BT.turnLock) return;
+  if (btn.dataset.item) return useBattleItem(btn.dataset.item);
+  const cmd = btn.dataset.cmd;
+  if (!cmd) return;
   handleCommand(cmd);
 });
 
@@ -1939,6 +2166,7 @@ async function handleCommand(cmd) {
   if (cmd === "fight") return doFight();
   if (cmd === "skill") return doSkill();
   if (cmd === "item") return doItem();
+  if (cmd === "items-back") return renderBattleCommands("main");
   if (cmd === "run") return doRun();
 }
 
@@ -1948,25 +2176,86 @@ function enemySprite() { return document.getElementById("battle-enemy"); }
 async function doFight() { return attackRound(1.0, "こうげき"); }
 
 async function doSkill() {
-  log("✦ ひっさつのスキル！");
-  playBattleSkillEffect();
-  return attackRound(1.6, "スキル");
+  const actors = BT.party.filter(m => !m.dead && !m.skillUsed);
+  if (actors.length === 0) { toast("使えるスキルがない"); return; }
+  BT.turnLock = true; setCommands(false);
+  for (const m of actors) {
+    m.skillUsed = true;
+    await useMemberSkill(m);
+    renderParty();
+    if (BT.enemyHp <= 0) return enemyDefeated();
+  }
+  await enemyTurn();
 }
 
-// 仲間が順番に攻撃（multiplier でスキルの威力を上げる）
+function rollMemberDamage(m, multiplier = 1) {
+  const buff = BT.nextAttackMul || 1;
+  BT.nextAttackMul = 1;
+  let dmg = Math.max(1, Math.round((m.atk + randInt(-2, 3)) * multiplier * buff));
+  const crit = Math.random() < (m.critRate || 0);
+  if (crit) dmg = Math.round(dmg * 1.6);
+  return { dmg, crit, buffed: buff > 1 };
+}
+
+async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false) {
+  BT.enemyHp -= dmg;
+  log(`${m.name}の ${label}！ ${dmg} のダメージ${crit ? "（会心）" : ""}${buffed ? "（エール）" : ""}`);
+  enemySprite().classList.add("hit");
+  playBattleHitEffect();
+  setEnemyHpBar();
+  await wait(BATTLE_HIT_WAIT_MS);
+  enemySprite().classList.remove("hit");
+}
+
+async function useMemberSkill(m) {
+  const skill = m.bskill || SKILLS.slash;
+  log(`✦ ${m.name}の「${skill.name}」！`);
+  playBattleSkillEffect();
+  await wait(120);
+  if (skill.kind === "heal") {
+    const target = BT.party.filter(x => !x.dead).sort((a, b) => (a.curHp / a.maxHp) - (b.curHp / b.maxHp))[0];
+    if (!target) return;
+    const amount = skill.power + Math.round(m.rarity * 2);
+    target.curHp = Math.min(target.maxHp, target.curHp + amount);
+    log(`${target.name}を ${amount} 回復`);
+    return wait(BATTLE_HIT_WAIT_MS);
+  }
+  if (skill.kind === "defUp") {
+    BT.guardTurns = Math.max(BT.guardTurns, 2);
+    log(`味方全員の防御が上がった（2ターン）`);
+    return wait(BATTLE_HIT_WAIT_MS);
+  }
+  if (skill.kind === "enemyAtkDown") {
+    BT.enemyAtkMul = Math.min(BT.enemyAtkMul, skill.power);
+    BT.enemyDebuffTurns = Math.max(BT.enemyDebuffTurns, 3);
+    log(`${BT.enemy.name}の攻撃力が下がった`);
+    return wait(BATTLE_HIT_WAIT_MS);
+  }
+  if (skill.kind === "buffNext") {
+    BT.nextAttackMul = Math.max(BT.nextAttackMul, skill.power);
+    log(`次の攻撃が強くなる`);
+    return wait(BATTLE_HIT_WAIT_MS);
+  }
+  if (skill.kind === "bigRandom") {
+    if (Math.random() < 0.35) {
+      const { dmg } = rollMemberDamage(m, skill.power);
+      return applyEnemyDamage(m, dmg, skill.name, true);
+    }
+    const { dmg } = rollMemberDamage(m, 0.35);
+    return applyEnemyDamage(m, dmg, `${skill.name}（失敗）`);
+  }
+  const mult = skill.kind === "crit" ? skill.power : (skill.kind === "atkAll" ? skill.power * 1.15 : skill.power);
+  const { dmg, crit, buffed } = rollMemberDamage(m, mult);
+  return applyEnemyDamage(m, dmg, skill.name, skill.kind === "crit" || crit, buffed);
+}
+
+// 仲間が順番に攻撃
 async function attackRound(multiplier, label) {
   BT.turnLock = true; setCommands(false);
   for (const m of BT.party) {
     if (m.dead) continue;
-    const base = m.atk + Math.floor(Math.random() * 6) - 2;
-    const dmg = Math.max(1, Math.round(base * multiplier));
-    BT.enemyHp -= dmg;
-    log(`${m.name}の ${label}！ ${dmg} のダメージ`);
-    enemySprite().classList.add("hit");
-    playBattleHitEffect();
-    setEnemyHpBar();
-    await wait(BATTLE_HIT_WAIT_MS);
-    enemySprite().classList.remove("hit");
+    const { dmg, crit, buffed } = rollMemberDamage(m, multiplier);
+    await applyEnemyDamage(m, dmg, label, crit, buffed);
     if (BT.enemyHp <= 0) { return enemyDefeated(); }
   }
   await enemyTurn();
@@ -1976,23 +2265,63 @@ async function enemyTurn() {
   const alive = BT.party.filter(m => !m.dead);
   if (alive.length === 0) return; // 念のため
   const target = alive[Math.floor(Math.random() * alive.length)];
-  const dmg = BT.enemy.atk + Math.floor(Math.random() * 5) - 2;
+  const raw = Math.max(1, Math.round((BT.enemy.atk + randInt(-2, 2)) * BT.enemyAtkMul));
+  const mitigation = Math.floor((target.def || 0) / 3) + (BT.guardTurns > 0 ? 3 : 0);
+  let dmg = Math.max(0, raw - mitigation);
+  if (BT.barrier > 0) {
+    BT.barrier--;
+    dmg = Math.max(0, dmg - 1);
+    log("バリアオーブが ダメージを軽減！");
+  }
   target.curHp = Math.max(0, target.curHp - dmg);
   log(`${BT.enemy.name}の こうげき！ ${target.name}に ${dmg} のダメージ`);
   if (target.curHp <= 0) { target.dead = true; log(`${target.name}は たおれた…`); }
   renderParty();
   await wait(BATTLE_TURN_WAIT_MS);
+  tickBattleEffects();
   if (BT.party.every(m => m.dead)) return partyWipe();
-  BT.turnLock = false; setCommands(true);
+  BT.turnLock = false; renderBattleCommands("main"); setCommands(true);
 }
 
-async function doItem() {
-  if (save.crystals < 10) { toast("クリスタルが足りない（10必要）"); return; }
-  BT.turnLock = true; setCommands(false);
-  save.crystals -= 10; persist();
-  // 全員回復
-  BT.party.forEach(m => { if (!m.dead) m.curHp = Math.min(m.maxHp, m.curHp + 20); });
-  log("どうぐ「ほしのしずく」を つかった！ 全員20かいふく");
+function tickBattleEffects() {
+  if (BT.guardTurns > 0) BT.guardTurns--;
+  if (BT.enemyDebuffTurns > 0) {
+    BT.enemyDebuffTurns--;
+    if (BT.enemyDebuffTurns <= 0) {
+      BT.enemyAtkMul = 1;
+      log(`${BT.enemy.name}の弱体が切れた`);
+    }
+  }
+}
+
+function doItem() {
+  renderBattleCommands("items");
+}
+
+async function useBattleItem(id) {
+  const item = ITEM_DEFS[id];
+  if (!item || item.use !== "battle") return;
+  if (itemCount(id) <= 0) { toast("そのアイテムを持っていない"); return; }
+  const alive = BT.party.filter(m => !m.dead);
+  if (id === "smallHeal") {
+    const target = alive.filter(m => m.curHp < m.maxHp).sort((a, b) => (a.curHp / a.maxHp) - (b.curHp / b.maxHp))[0];
+    if (!target) { toast("回復する相手がいない"); return; }
+    consumeItem(id);
+    BT.turnLock = true; renderBattleCommands("main"); setCommands(false);
+    target.curHp = Math.min(target.maxHp, target.curHp + 20);
+    log(`どうぐ「${item.name}」！ ${target.name}を20回復`);
+  } else if (id === "allHeal") {
+    if (!alive.some(m => m.curHp < m.maxHp)) { toast("回復する相手がいない"); return; }
+    consumeItem(id);
+    BT.turnLock = true; renderBattleCommands("main"); setCommands(false);
+    alive.forEach(m => { m.curHp = Math.min(m.maxHp, m.curHp + 10); });
+    log(`どうぐ「${item.name}」！ 全員10回復`);
+  } else if (id === "barrierOrb") {
+    consumeItem(id);
+    BT.turnLock = true; renderBattleCommands("main"); setCommands(false);
+    BT.barrier++;
+    log(`どうぐ「${item.name}」！ 次の被ダメージを1軽減`);
+  }
   renderParty();
   await wait(BATTLE_TURN_WAIT_MS);
   await enemyTurn();
@@ -2288,7 +2617,9 @@ function scoutInfo(ally) {
   let rate = r.baseRate;
   const hasBonus = stageBonus && stageBonus.type === "scoutRate";
   if (hasBonus) rate += stageBonus.boosted ? 0.08 : 0.05; // ミドリ星人で強化
-  return { cost: r.cost, rate: Math.min(0.99, rate), boosted: !!hasBonus };
+  const beacon = itemCount("scoutBeacon") > 0;
+  if (beacon) rate += 0.10;
+  return { cost: r.cost, rate: Math.min(0.99, rate), boosted: !!hasBonus, beacon };
 }
 
 // 図鑑：発見済み登録
@@ -2310,7 +2641,7 @@ function offerScout() {
 function showScoutOffer(ally) {
   show("scout");
   document.getElementById("scout-title").textContent = "仲間候補があらわれた！";
-  const { cost, rate, boosted } = scoutInfo(ally);
+  const { cost, rate, boosted, beacon } = scoutInfo(ally);
   const enough = save.crystals >= cost;
   const replaceTarget = !save.party.includes(ally.id) && save.party.length >= 4 ? allyById(save.party[save.party.length - 1]) : null;
   document.getElementById("scout-result").innerHTML = `
@@ -2324,6 +2655,7 @@ function showScoutOffer(ally) {
       <div class="cand-stat"><div class="k">所持💎</div><div class="v">${save.crystals}</div></div>
     </div>
     ${enough ? "" : `<div class="scout-sub" style="color:var(--danger)">クリスタルが足りない…</div>`}
+    ${beacon ? `<div class="scout-sub" style="color:var(--ok)">スカウトビーコン適用中：成功率 +10%</div>` : ""}
     ${replaceTarget ? `<div class="scout-sub scout-replace-note">成功時は4人目の ${replaceTarget.name} と入れ替え</div>` : ""}
   `;
   document.getElementById("scout-actions").innerHTML = `
@@ -2336,15 +2668,16 @@ function showScoutOffer(ally) {
 function attemptScout() {
   const ally = scoutCandidate;
   if (!ally) return show("worldmap");
-  const { cost, rate } = scoutInfo(ally);
+  const { cost, rate, beacon } = scoutInfo(ally);
   if (save.crystals < cost) return; // 念のため
+  if (beacon) consumeItem("scoutBeacon");
   if (Math.random() < rate) {
     save.crystals -= cost;          // 成功時のみ消費
     const recruitResult = recruit(ally); // パーティ加入＋「加入済み」記録
-    showScoutResult(ally, "success", cost, recruitResult);
+    showScoutResult(ally, "success", cost, recruitResult, beacon);
   } else {
     // 失敗：仲間にならない／消費なし（MVP）／図鑑は発見済みのまま
-    showScoutResult(ally, "fail");
+    showScoutResult(ally, "fail", 0, {}, beacon);
   }
   persist();
 }
@@ -2370,7 +2703,7 @@ function recruit(ally) {
   return result;
 }
 
-function showScoutResult(ally, kind, cost, recruitResult = {}) {
+function showScoutResult(ally, kind, cost, recruitResult = {}, beacon = false) {
   document.getElementById("scout-title").textContent = "スカウト結果";
   const box = document.getElementById("scout-result");
   if (kind === "success") {
@@ -2381,14 +2714,14 @@ function showScoutResult(ally, kind, cost, recruitResult = {}) {
       <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
       <div class="scout-voice ok">「${ally.voice.ok}」</div>
       <div class="scout-msg" style="color:var(--ok)">${ally.name} が なかまになった！</div>
-      <div class="scout-sub">💎${cost} 消費 ／ 図鑑に「加入」を記録 ／ ${partyNote}</div>
+      <div class="scout-sub">💎${cost} 消費${beacon ? " ／ ビーコン使用" : ""} ／ 図鑑に「加入」を記録 ／ ${partyNote}</div>
     `;
   } else {
     box.innerHTML = `
       <div class="scout-face">💨</div>
       <div class="scout-voice ng">「${ally.voice.ng}」</div>
       <div class="scout-msg">スカウト失敗…</div>
-      <div class="scout-sub">${ally.name} は 去っていった（図鑑には「発見」を記録）</div>
+      <div class="scout-sub">${ally.name} は 去っていった${beacon ? "（ビーコン使用）" : ""}（図鑑には「発見」を記録）</div>
     `;
   }
   document.getElementById("scout-actions").innerHTML =
@@ -2487,8 +2820,8 @@ window.GAME = {
   show, toast,
   goShooting: (i = 0) => startStage(STARS[i]),
   goBattle: (i = 0) => { currentStar = STARS[i]; startBattle(STARS[i]); },
-  winShooting: () => { if (SH.running) { SH.hp = MAX_HP; SH.startT = performance.now() - (STAGE_TIME + 1) * 1000; } },
-  endShooting: () => { if (SH.running) { SH.hp = MAX_HP; endShooting(); } }, // 結果画面へ即遷移（デバッグ）
+  winShooting: () => { if (SH.running) { SH.hp = SH.maxHp || MAX_HP; SH.startT = performance.now() - (STAGE_TIME + 1) * 1000; } },
+  endShooting: () => { if (SH.running) { SH.hp = SH.maxHp || MAX_HP; endShooting(); } }, // 結果画面へ即遷移（デバッグ）
   completeMission: () => { if (SH.mission) { SH.missionDone = true; SH.missionFailed = false; updateMissionHUD(); } },
   setBonus: (type) => { stageBonus = (MISSIONS.find(m => m.bonus.type === type) || {}).bonus || null; return stageBonus; },
   get bonus() { return stageBonus; },

@@ -142,12 +142,25 @@
       <header class="topbar">
         <span class="crystal-counter">💎 <b id="wm-crystals">0</b></span>
         <span class="topbar-title">ワールドマップ</span>
-        <button class="btn-icon" data-action="open-dex-map">📖</button>
+        <div class="top-actions">
+          <button class="btn-icon" data-action="open-shop">🛒</button>
+          <button class="btn-icon" data-action="open-dex-map">📖</button>
+        </div>
       </header>
       <div id="worldmap-space"></div>
       <div class="worldmap-overlay">
         <div id="star-list" class="star-list"></div>
       </div>
+    </section>
+
+    <!-- ============ ショップ ============ -->
+    <section id="screen-shop" class="screen">
+      <header class="topbar">
+        <button class="btn-icon" data-action="close-shop">←</button>
+        <span class="topbar-title">ショップ</span>
+        <span id="shop-crystals" class="crystal-counter">💎 0</span>
+      </header>
+      <div id="shop-list" class="shop-list"></div>
     </section>
 
     <!-- ============ 航行前：仲間効果 ============ -->
