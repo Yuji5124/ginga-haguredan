@@ -132,18 +132,63 @@
       </div>
     </section>
 
-    <!-- ============ Three.js 宇宙シューティング ============ -->
+    <!-- ============ Three.js 宇宙シューティング（アーケードSTG風HUD） ============ -->
     <section id="screen-shooting" class="screen">
       <div id="shooting-canvas"></div>
-      <div class="shooting-hud">
-        <div class="hud-row">
-          <span>💎 <b id="sh-crystals">0</b></span>
-          <span>⏱ <b id="sh-timer">30</b></span>
-          <span>❤ <b id="sh-hp">3</b></span>
-        </div>
-        <div class="hud-progress"><div id="sh-progress"></div></div>
-        <div class="mission-banner" id="mission-banner"></div>
+
+      <!-- 上部：目的地（星）への到達ゲージ -->
+      <div class="sh-boss" id="sh-dest">
+        <div class="sh-boss-name">🚀 <span id="sh-dest-name">○○星</span> へ航行中…</div>
+        <div class="sh-boss-bar"><div id="sh-dest-fill"></div></div>
       </div>
+
+      <!-- 左上：ロゴ / ミッション / スコア / チェイン -->
+      <div class="sh-tl">
+        <div class="sh-logo">銀河はぐれ団</div>
+        <div class="sh-mission"><span class="sh-lbl">MISSION</span><div id="sh-mission-text">—</div></div>
+        <div class="sh-score"><span class="sh-lbl">SCORE</span><div id="sh-score">00000000</div></div>
+        <div class="sh-chain">
+          <span class="sh-lbl">CHAIN</span>
+          <div class="sh-chain-num"><b id="sh-chain">0</b> <small>連撃！</small></div>
+          <div class="sh-chain-gauge"><div id="sh-chain-fill"></div></div>
+        </div>
+      </div>
+
+      <!-- 右上：MAPレーダー -->
+      <div class="sh-map">
+        <div class="sh-map-title">MAP</div>
+        <canvas id="sh-map-canvas" width="120" height="96"></canvas>
+      </div>
+
+      <!-- 右：パワーアップ -->
+      <div class="sh-power" id="sh-power">
+        <div class="sh-power-title">POWER UP</div>
+        <div class="sh-power-row"><span class="pw-ico" style="color:#6cf">▲</span><span class="pw-name">WIDE</span><span class="pw-lv" id="pw-wide">Lv.1</span></div>
+        <div class="sh-power-row"><span class="pw-ico" style="color:#f6c">≣</span><span class="pw-name">LASER</span><span class="pw-lv" id="pw-laser">Lv.1</span></div>
+        <div class="sh-power-row"><span class="pw-ico" style="color:#fc6">↟</span><span class="pw-name">MISSILE</span><span class="pw-lv" id="pw-missile">Lv.1</span></div>
+        <div class="sh-power-row"><span class="pw-ico" style="color:#6f9">◈</span><span class="pw-name">SHIELD</span><span class="pw-lv" id="pw-shield">Lv.0</span></div>
+      </div>
+
+      <!-- 左：1P〜4P パーティ -->
+      <div class="sh-party" id="sh-party"></div>
+
+      <!-- 右下：ステータス・BOMB・CREDIT -->
+      <div class="sh-br">
+        <div class="sh-status">⏱ <b id="sh-timer">30</b>　💎 <b id="sh-crystals">0</b>　<b id="sh-hp">❤❤❤</b></div>
+        <button class="sh-bomb" id="sh-bomb">💣 BOMB ×<b id="sh-bomb-n">3</b></button>
+        <div class="sh-credit">CREDIT(S) <b>2</b></div>
+      </div>
+      <div class="hud-progress sh-progress-wrap"><div id="sh-progress"></div></div>
+
+      <!-- 下部：キャラのセリフ＋旗 -->
+      <div class="sh-speech">
+        <div class="sh-speech-face" id="sh-speech-face">🐶</div>
+        <div class="sh-speech-text" id="sh-speech-text">よしよし！この調子だ！</div>
+        <div class="sh-flag">🏴‍☠️</div>
+      </div>
+
+      <!-- ミッション進捗（既存） -->
+      <div class="mission-banner" id="mission-banner"></div>
       <div class="shooting-hint" id="shooting-hint">ドラッグで上下左右に移動 / 攻撃は自動</div>
     </section>
 
