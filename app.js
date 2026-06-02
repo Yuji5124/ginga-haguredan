@@ -816,7 +816,14 @@ document.querySelector("#screen-preflight").addEventListener("click", (e) => {
 const STAGE_TIME = 24; // シューティング1ステージの秒数
 
 const MAX_HP = 3;
-const SHIP_R = 0.48; // 飛行船の当たり判定半径（小さめの丸い船体に合わせる）
+const SHIP_R = 0.58; // 飛行船の当たり判定半径（縦型フライト用）
+const FLIGHT_X_LIMIT = 5.2;
+const FLIGHT_SHIP_Y = -3.15;
+const FLIGHT_SPAWN_Y = 4.55;
+const FLIGHT_DESPAWN_Y = -4.65;
+const FLIGHT_BULLET_TOP = 5.2;
+const FLIGHT_OBJECT_Z = 0;
+const MANUAL_SHOT_COOLDOWN = 130;
 const ARRIVAL_STEP_MS = 850;
 const BATTLE_HIT_WAIT_MS = 200;
 const BATTLE_TURN_WAIT_MS = 260;
@@ -829,6 +836,7 @@ const SH = {
   bullets: [], rocks: [], enemies: [], crystals: [],
   hp: MAX_HP, gained: 0, timeLeft: STAGE_TIME, lastShot: 0, lastSpawn: 0,
   running: false, targetX: 0, targetY: 0, startT: 0,
+  keyDir: 0, lastManualShot: 0,
   // アーケードHUD：スコア＆チェイン＆ボム
   score: 0, chain: 0, chainExpire: 0, bombs: 3, lastSpeech: 0, speechIdx: 0,
   // 航行スタッツ＆ミッション
@@ -843,6 +851,7 @@ const SPEECH_LINES = [
   "よしよし！ この調子だ！", "銀河の平和は オイラたちが守るぜ！", "クリスタル、いただきっ！",
   "敵が来るぞ、気をつけろ！", "まだまだ いけるさ！", "次の星まで あと少し！",
 ];
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
 function initShooting() {
   const host = document.getElementById("shooting-canvas");
@@ -855,17 +864,17 @@ function initShooting() {
   SH.scene.fog = new THREE.FogExp2(0x05030f, 0.012);
 
   SH.camera = new THREE.PerspectiveCamera(60, host.clientWidth / host.clientHeight, 0.1, 200);
-  SH.camera.position.set(0, 2.5, 12);
-  SH.camera.lookAt(0, 0, -10);
+  SH.camera.position.set(0, 0, 12);
+  SH.camera.lookAt(0, 0, 0);
 
   // 背景の星
   const starGeo = new THREE.BufferGeometry();
   const SN = 800;
   const sp = new Float32Array(SN * 3);
   for (let i = 0; i < SN; i++) {
-    sp[i*3]   = (Math.random() - 0.5) * 60;
-    sp[i*3+1] = (Math.random() - 0.5) * 60;
-    sp[i*3+2] = -Math.random() * 150;
+    sp[i*3]   = (Math.random() - 0.5) * 38;
+    sp[i*3+1] = (Math.random() - 0.5) * 70;
+    sp[i*3+2] = -Math.random() * 90;
   }
   starGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
   SH.bgStars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x99bbff, size: 0.3 }));
@@ -969,27 +978,27 @@ function buildShip() {
   g.add(glow);
 
   g.scale.setScalar(0.78); // 全体を少し小さく
-  g.position.set(0, 0, 8);
+  g.position.set(0, FLIGHT_SHIP_Y, FLIGHT_OBJECT_Z);
   return g;
 }
 
-// 出現位置（上下左右に動けるよう縦範囲を広げる）
-const spawnX = () => (Math.random() - 0.5) * 9;   // ≈ -4.5..4.5
-const spawnY = () => -1.5 + Math.random() * 4;    // ≈ -1.5..2.5
+// 縦型航行：画面上から下へ流れるレーン
+const spawnX = () => (Math.random() - 0.5) * (FLIGHT_X_LIMIT * 1.8);
+const spawnTopY = () => FLIGHT_SPAWN_Y + Math.random() * 0.9;
 
 // red=true で赤い隕石（ダメージ2・出現率低め）
 function spawnRock(red = false) {
-  const r = 0.6 + Math.random() * 1.2;
+  const r = red ? 0.85 + Math.random() * 0.45 : 0.7 + Math.random() * 0.55;
   const m = new THREE.Mesh(
     new THREE.IcosahedronGeometry(r, 0),
     new THREE.MeshStandardMaterial({
-      color: red ? 0xff3322 : 0x887766,
-      emissive: red ? 0x551100 : 0x000000,
+      color: red ? 0xff3b28 : 0x9a7658,
+      emissive: red ? 0x771400 : 0x1f140c,
       roughness: 1, flatShading: true,
     })
   );
-  m.position.set(spawnX(), spawnY(), -90);
-  m.userData = { type: "rock", r, spin: (Math.random() - 0.5) * 0.05, dmg: red ? 2 : 1 };
+  m.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
+  m.userData = { type: "rock", r, spin: (Math.random() - 0.5) * 0.08, dmg: red ? 2 : 1 };
   SH.scene.add(m); SH.rocks.push(m);
 }
 
@@ -997,40 +1006,51 @@ function spawnRock(red = false) {
 function spawnCrystal(kind = "normal") {
   let geo, mat, r;
   if (kind === "big") {
-    geo = new THREE.OctahedronGeometry(0.95, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0xffd35a, emissive: 0xaa7711, metalness: 0.5 });
-    r = 1.0;
+    geo = new THREE.OctahedronGeometry(1.05, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0xd86cff, emissive: 0x7a22aa, metalness: 0.5 });
+    r = 1.05;
   } else if (kind === "heal") {
-    geo = new THREE.OctahedronGeometry(0.6, 0);
+    geo = new THREE.OctahedronGeometry(0.78, 0);
     mat = new THREE.MeshStandardMaterial({ color: 0x66ff99, emissive: 0x22aa55, metalness: 0.3 });
-    r = 0.7;
+    r = 0.78;
   } else {
-    // 通常クリスタル＝紫の星（画像に合わせる）
-    geo = new THREE.OctahedronGeometry(0.5, 0);
-    mat = new THREE.MeshStandardMaterial({ color: 0xc266ff, emissive: 0x7722cc, metalness: 0.4 });
-    r = 0.6;
+    geo = new THREE.OctahedronGeometry(0.72, 0);
+    mat = new THREE.MeshStandardMaterial({ color: 0x66e8ff, emissive: 0x2288cc, metalness: 0.4 });
+    r = 0.72;
   }
   const m = new THREE.Mesh(geo, mat);
-  m.position.set(spawnX(), spawnY(), -90);
+  m.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
   m.userData = { type: "crystal", kind, r };
   SH.scene.add(m); SH.crystals.push(m);
 }
 function spawnEnemy() {
   const g = new THREE.Group();
   const core = new THREE.Mesh(
-    new THREE.TorusGeometry(0.7, 0.3, 8, 16),
-    new THREE.MeshStandardMaterial({ color: 0xff5588, emissive: 0x551122, flatShading: true })
+    new THREE.TorusGeometry(0.82, 0.32, 8, 16),
+    new THREE.MeshStandardMaterial({ color: 0xff5a26, emissive: 0x661500, flatShading: true })
   );
   g.add(core);
-  g.position.set((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 2, -90);
-  g.userData = { type: "enemy", r: 1.0, hp: 2 };
+  const eye = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 10, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffdd66 })
+  );
+  eye.position.z = 0.12;
+  g.add(eye);
+  g.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
+  g.userData = { type: "enemy", r: 1.05, hp: 2 };
   SH.scene.add(g); SH.enemies.push(g);
 }
 // 自機の青い極太レーザー＋僚機の細い弾
 function fireBullet() {
-  spawnLaser(SH.ship.position, 0.34, 0x66ccff, 6);   // メインの太レーザー
+  spawnLaser(SH.ship.position, 0.28, 0x66ccff, 6);   // メインの太レーザー
   if (SH.wingL && SH.wingL.visible) spawnLaser(SH.wingL.position, 0.14, 0xff7799, 4);
   if (SH.wingR && SH.wingR.visible) spawnLaser(SH.wingR.position, 0.14, 0xffdd66, 4);
+}
+function triggerManualShot(now = performance.now()) {
+  if (!SH.running || now - SH.lastManualShot < MANUAL_SHOT_COOLDOWN) return;
+  fireBullet();
+  SH.lastManualShot = now;
+  SH.lastShot = Math.max(SH.lastShot, now - 220 * SH.nav.fireRateMul);
 }
 function spawnLaser(pos, w, color, dmg) {
   const m = new THREE.Mesh(
@@ -1038,8 +1058,9 @@ function spawnLaser(pos, w, color, dmg) {
     new THREE.MeshBasicMaterial({ color })
   );
   m.position.copy(pos);
-  m.position.z -= 1;
-  m.userData = { type: "bullet", r: 0.3, dmg };
+  m.position.y += 0.62;
+  m.position.z = FLIGHT_OBJECT_Z;
+  m.userData = { type: "bullet", r: 0.25, dmg };
   SH.scene.add(m); SH.bullets.push(m);
 }
 
@@ -1050,8 +1071,9 @@ function startShooting(star) {
   [...SH.bullets, ...SH.rocks, ...SH.enemies, ...SH.crystals].forEach(o => SH.scene.remove(o));
   SH.bullets = []; SH.rocks = []; SH.enemies = []; SH.crystals = [];
   SH.hp = MAX_HP; SH.gained = 0; SH.timeLeft = STAGE_TIME;
-  SH.ship.position.set(0, 0, 8); SH.targetX = 0; SH.targetY = 0;
+  SH.ship.position.set(0, FLIGHT_SHIP_Y, FLIGHT_OBJECT_Z); SH.targetX = 0; SH.targetY = FLIGHT_SHIP_Y;
   SH.lastSpawn = 0; SH.lastShot = 0; SH.running = true;
+  SH.keyDir = 0; SH.lastManualShot = 0;
   SH.startT = performance.now();
   // アーケードHUDのリセット
   SH.score = 0; SH.chain = 0; SH.chainExpire = 0; SH.bombs = 3;
@@ -1101,32 +1123,34 @@ function updateShooting(dt, now) {
   // タイマー
   SH.timeLeft = Math.max(0, STAGE_TIME - (now - SH.startT) / 1000);
 
-  // 背景流れ
-  SH.bgStars.position.z += 20 * dt;
-  if (SH.bgStars.position.z > 60) SH.bgStars.position.z = 0;
+  // 背景流れ（上へ進んでいるように、星が下へ流れる）
+  SH.bgStars.position.y -= 9 * dt;
+  if (SH.bgStars.position.y < -60) SH.bgStars.position.y = 0;
 
-  // 船移動（ドラッグ目標へ上下左右に補間）
-  SH.ship.position.x += (SH.targetX - SH.ship.position.x) * Math.min(1, dt * 10);
-  SH.ship.position.y += (SH.targetY - SH.ship.position.y) * Math.min(1, dt * 10);
+  // 船移動（縦型：画面下で左右移動中心）
+  if (SH.keyDir) SH.targetX = clamp(SH.targetX + SH.keyDir * 8.5 * dt, -FLIGHT_X_LIMIT, FLIGHT_X_LIMIT);
+  SH.ship.position.x += (SH.targetX - SH.ship.position.x) * Math.min(1, dt * 13);
+  SH.ship.position.y = FLIGHT_SHIP_Y + Math.sin(now / 260) * 0.045;
+  SH.ship.position.z = FLIGHT_OBJECT_Z;
   SH.ship.rotation.z = (SH.targetX - SH.ship.position.x) * -0.2;
-  SH.ship.rotation.x = (SH.targetY - SH.ship.position.y) * 0.15; // 上下移動で軽くピッチ
+  SH.ship.rotation.x = -0.14;
 
   // 僚機は自機の左右に追従
   const wob = Math.sin(now / 300) * 0.1;
-  if (SH.wingL.visible) SH.wingL.position.set(SH.ship.position.x - 1.5, SH.ship.position.y - 0.2 + wob, SH.ship.position.z + 0.3);
-  if (SH.wingR.visible) SH.wingR.position.set(SH.ship.position.x + 1.5, SH.ship.position.y - 0.2 - wob, SH.ship.position.z + 0.3);
+  if (SH.wingL.visible) SH.wingL.position.set(SH.ship.position.x - 1.25, FLIGHT_SHIP_Y - 0.2 + wob, FLIGHT_OBJECT_Z);
+  if (SH.wingR.visible) SH.wingR.position.set(SH.ship.position.x + 1.25, FLIGHT_SHIP_Y - 0.2 - wob, FLIGHT_OBJECT_Z);
 
-  // 自動弾（ロボ太がいると発射間隔が短縮）
-  if (now - SH.lastShot > 350 * SH.nav.fireRateMul) { fireBullet(); SH.lastShot = now; }
+  // 自動弾＋タップ/SPACEの手動弾（ロボ太がいると発射間隔が短縮）
+  if (now - SH.lastShot > 520 * SH.nav.fireRateMul) { fireBullet(); SH.lastShot = now; }
 
   // スポーン（種類ごとに出現率を設定）
-  if (now - SH.lastSpawn > 600) {
+  if (now - SH.lastSpawn > 650) {
     const r = Math.random();
-    if (r < 0.30)      spawnRock(false);   // 通常隕石
-    else if (r < 0.38) spawnRock(true);    // 赤い隕石（低確率）
-    else if (r < 0.63) spawnCrystal("normal");
-    else if (r < 0.69) spawnCrystal("big");  // 大クリスタル（低確率）
-    else if (r < 0.77) spawnCrystal("heal"); // 回復クリスタル
+    if (r < 0.27)      spawnRock(false);   // 通常隕石
+    else if (r < 0.35) spawnRock(true);    // 赤い隕石（低確率）
+    else if (r < 0.64) spawnCrystal("normal");
+    else if (r < 0.71) spawnCrystal("big");  // 大クリスタル（低確率）
+    else if (r < 0.78) spawnCrystal("heal"); // 回復クリスタル
     else               spawnEnemy();
     SH.lastSpawn = now;
   }
@@ -1137,34 +1161,35 @@ function updateShooting(dt, now) {
     if (elapsed >= SH.mission.goal) { SH.missionDone = true; updateMissionHUD(); }
   }
 
-  const speed = 28;
+  const speed = 4.25;
   // 自機弾
   for (let i = SH.bullets.length - 1; i >= 0; i--) {
     const b = SH.bullets[i];
-    b.position.z -= speed * 1.6 * dt;
-    if (b.position.z < -95) { SH.scene.remove(b); SH.bullets.splice(i, 1); }
+    b.position.y += 15.5 * dt;
+    b.rotation.z += 0.18;
+    if (b.position.y > FLIGHT_BULLET_TOP) { SH.scene.remove(b); SH.bullets.splice(i, 1); }
   }
   // 隕石（通常 -1 / 赤 -2）。ペンペンがいると接近スピード低下
   for (let i = SH.rocks.length - 1; i >= 0; i--) {
     const o = SH.rocks[i];
-    o.position.z += speed * SH.nav.hazardSpeedMul * dt;
+    o.position.y -= speed * SH.nav.hazardSpeedMul * dt;
     o.rotation.x += o.userData.spin; o.rotation.y += o.userData.spin;
     if (hitShip(o)) { damageShip(o.userData.dmg, true); SH.scene.remove(o); SH.rocks.splice(i, 1); continue; }
-    if (o.position.z > 14) { SH.scene.remove(o); SH.rocks.splice(i, 1); }
+    if (o.position.y < FLIGHT_DESPAWN_Y) { SH.scene.remove(o); SH.rocks.splice(i, 1); }
   }
   // クリスタル（通常 +5 / 大 +20 / 回復 HP+1）
   for (let i = SH.crystals.length - 1; i >= 0; i--) {
     const o = SH.crystals[i];
-    o.position.z += speed * dt;
-    o.rotation.y += 0.06;
+    o.position.y -= speed * 0.92 * dt;
+    o.rotation.y += 0.08; o.rotation.z += 0.035;
     if (hitShip(o)) { collectCrystal(o.userData.kind); SH.scene.remove(o); SH.crystals.splice(i, 1); continue; }
-    if (o.position.z > 14) { SH.scene.remove(o); SH.crystals.splice(i, 1); }
+    if (o.position.y < FLIGHT_DESPAWN_Y) { SH.scene.remove(o); SH.crystals.splice(i, 1); }
   }
   // 敵（ペンペンがいると接近スピード低下）
   for (let i = SH.enemies.length - 1; i >= 0; i--) {
     const e = SH.enemies[i];
-    e.position.z += speed * 0.8 * SH.nav.hazardSpeedMul * dt;
-    e.rotation.z += 0.04;
+    e.position.y -= speed * 0.82 * SH.nav.hazardSpeedMul * dt;
+    e.rotation.z += 0.055;
     // 弾ヒット
     for (let j = SH.bullets.length - 1; j >= 0; j--) {
       if (SH.bullets[j].position.distanceTo(e.position) < e.userData.r + 0.3) {
@@ -1182,7 +1207,7 @@ function updateShooting(dt, now) {
     }
     if (SH.enemies[i] === e) {
       if (hitShip(e)) { damageShip(1, false); SH.scene.remove(e); SH.enemies.splice(i, 1); continue; }
-      if (e.position.z > 14) { SH.scene.remove(e); SH.enemies.splice(i, 1); }
+      if (e.position.y < FLIGHT_DESPAWN_Y) { SH.scene.remove(e); SH.enemies.splice(i, 1); }
     }
   }
 
@@ -1241,7 +1266,8 @@ function damageShip(amount = 1, isRock = false) {
     updateShootingHUD();
     return;
   }
-  SH.hp -= amount;
+  SH.hp = Math.max(1, SH.hp - amount);
+  SH.score = Math.max(0, SH.score - amount * 120);
   SH.dmgTaken += amount;
   SH.chain = 0; // 被弾でチェイン途切れ
   // ノーダメージ系ミッションは被弾で失敗
@@ -1374,36 +1400,44 @@ function drawMinimap() {
   const ctx = cv.getContext("2d");
   ctx.clearRect(0, 0, cv.width, cv.height);
   const W = cv.width, H = cv.height;
-  // z[-90..14] を上→下、x[-5..5] を左→右
-  const px = (x) => (x + 5) / 10 * W;
-  const pz = (z) => (1 - (z + 90) / 104) * H;
-  const dot = (x, z, color, s = 2) => { ctx.fillStyle = color; ctx.fillRect(px(x) - s / 2, pz(z) - s / 2, s, s); };
-  SH.crystals.forEach(o => dot(o.position.x, o.position.z, "#c266ff"));
-  SH.rocks.forEach(o => dot(o.position.x, o.position.z, "#998877"));
-  SH.enemies.forEach(o => dot(o.position.x, o.position.z, "#ff5577", 3));
-  dot(SH.ship.position.x, SH.ship.position.z, "#66e0ff", 4); // 自機
+  // y[上..下] をミニマップ上→下、x[-limit..limit] を左→右
+  const px = (x) => (x + FLIGHT_X_LIMIT) / (FLIGHT_X_LIMIT * 2) * W;
+  const py = (y) => (1 - (y - FLIGHT_DESPAWN_Y) / (FLIGHT_SPAWN_Y - FLIGHT_DESPAWN_Y)) * H;
+  const dot = (x, y, color, s = 2) => { ctx.fillStyle = color; ctx.fillRect(px(x) - s / 2, py(y) - s / 2, s, s); };
+  SH.crystals.forEach(o => dot(o.position.x, o.position.y, o.userData.kind === "big" ? "#d86cff" : "#66e8ff", 3));
+  SH.rocks.forEach(o => dot(o.position.x, o.position.y, "#aa7758", 3));
+  SH.enemies.forEach(o => dot(o.position.x, o.position.y, "#ff5a26", 4));
+  dot(SH.ship.position.x, SH.ship.position.y, "#66e0ff", 5); // 自機
 }
 
-// 入力（ドラッグ位置に上下左右で追従）
+// 入力（縦型フライト：ドラッグ/キーで左右移動、タップ/SPACEでショット）
 let shootingBound = false;
 function bindShootingInput() {
   if (shootingBound) return;
   shootingBound = true;
   const host = document.getElementById("shooting-canvas");
-  const move = (clientX, clientY) => {
+  const move = (clientX) => {
     const rect = host.getBoundingClientRect();
     const nx = ((clientX - rect.left) / rect.width) * 2 - 1;        // -1..1
-    const ny = (clientY - rect.top) / rect.height;                  // 0(上)..1(下)
-    SH.targetX = nx * 5.5;
-    SH.targetY = 3 - ny * 5;                                        // 上=3 .. 下=-2
+    SH.targetX = clamp(nx * FLIGHT_X_LIMIT, -FLIGHT_X_LIMIT, FLIGHT_X_LIMIT);
+    SH.targetY = FLIGHT_SHIP_Y;
   };
-  host.addEventListener("touchmove", (e) => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-  host.addEventListener("touchstart", (e) => move(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  host.addEventListener("touchmove", (e) => { e.preventDefault(); move(e.touches[0].clientX); }, { passive: false });
+  host.addEventListener("touchstart", (e) => { move(e.touches[0].clientX); triggerManualShot(); }, { passive: true });
   let dragging = false;
-  host.addEventListener("mousedown", (e) => { dragging = true; move(e.clientX, e.clientY); });
-  // PCはドラッグ中だけでなくマウス移動でも追従
-  window.addEventListener("mousemove", (e) => { if (currentScreen === "shooting") move(e.clientX, e.clientY); });
+  host.addEventListener("mousedown", (e) => { dragging = true; move(e.clientX); triggerManualShot(); });
+  window.addEventListener("mousemove", (e) => { if (currentScreen === "shooting" && dragging) move(e.clientX); });
   window.addEventListener("mouseup", () => dragging = false);
+  window.addEventListener("keydown", (e) => {
+    if (currentScreen !== "shooting") return;
+    if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") { SH.keyDir = -1; e.preventDefault(); }
+    else if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") { SH.keyDir = 1; e.preventDefault(); }
+    else if (e.code === "Space") { triggerManualShot(); e.preventDefault(); }
+  });
+  window.addEventListener("keyup", (e) => {
+    if ((e.key === "ArrowLeft" || e.key.toLowerCase() === "a") && SH.keyDir < 0) SH.keyDir = 0;
+    if ((e.key === "ArrowRight" || e.key.toLowerCase() === "d") && SH.keyDir > 0) SH.keyDir = 0;
+  });
 }
 
 function endShooting() {
