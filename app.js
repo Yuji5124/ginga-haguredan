@@ -32,13 +32,13 @@ function createThreeFallback() {
       this.visible = true;
     }
     add(o) { this.children.push(o); return this; }
-  }
-  class Scene extends Obj3D {
-    constructor() { super(); this.userData = {}; }
     remove(o) {
       this.children = this.children.filter(child => child !== o);
       return this;
     }
+  }
+  class Scene extends Obj3D {
+    constructor() { super(); this.userData = {}; }
   }
   class Group extends Obj3D {}
   class Mesh extends Obj3D {
@@ -309,6 +309,33 @@ const STARTER_ID = "c1"; // 初期メンバー（まいごロボ・ピノ）
 // 敵の系統ラベル
 const ENEM_CAT = { bio: "宇宙生物系", robo: "ロボ・AI系", villain: "悪人系", concept: "概念系" };
 
+// ステージごとの疑似AI風3D背景テーマ（画像差し替え時は bgImage を追加する想定）
+const STAGE_THEMES = [
+  { key: "scrap",       label: "スクラップ星雲", primary: 0x8c7aa8, secondary: 0x60506f, accent: 0xc266ff, css: "#1a1328", prop: "crate",  particle: 0xb8a6ff },
+  { key: "checkpoint",  label: "検問ゲート",     primary: 0x2f8dff, secondary: 0x123b78, accent: 0xffdd66, css: "#071b32", prop: "ring",   particle: 0x66ccff },
+  { key: "thief",       label: "星くず盗賊道",   primary: 0xffb13b, secondary: 0x4a1828, accent: 0xff4b6a, css: "#1d0b18", prop: "gem",    particle: 0xffd36a },
+  { key: "merchant",    label: "ネオン商港",     primary: 0xffd45a, secondary: 0x663b14, accent: 0x66e8ff, css: "#1d1308", prop: "coin",   particle: 0xffdc66 },
+  { key: "gear",        label: "ねじまき工場",   primary: 0xd57931, secondary: 0x5d3926, accent: 0xffb347, css: "#1b120c", prop: "gear",   particle: 0xff9f4a },
+  { key: "meteor",      label: "流星荒野",       primary: 0xbc7550, secondary: 0x3a1e18, accent: 0xff4d2e, css: "#180b09", prop: "rock",   particle: 0xffaa6a },
+  { key: "scanner",     label: "迷子スキャン域", primary: 0xff3158, secondary: 0x24143c, accent: 0x66ccff, css: "#100818", prop: "beam",   particle: 0xff6688 },
+  { key: "office",      label: "暗黒オフィス網", primary: 0x4a6f99, secondary: 0x0b1628, accent: 0x8aa8ff, css: "#060b14", prop: "grid",   particle: 0x789cff },
+  { key: "circus",      label: "星くずサーカス", primary: 0xff66cc, secondary: 0x342058, accent: 0xffdd66, css: "#160d2a", prop: "ring",   particle: 0xff88ee },
+  { key: "pirate",      label: "黒赤海賊宙域",   primary: 0xd6333a, secondary: 0x130912, accent: 0xffd35a, css: "#080306", prop: "crate",  particle: 0xff5555 },
+  { key: "rust",        label: "廃兵器残骸",     primary: 0x99754f, secondary: 0x32241a, accent: 0x7dd7ff, css: "#120e0a", prop: "pillar", particle: 0xb08a62 },
+  { key: "mirror",      label: "偽りの白金神殿", primary: 0xe8e6ff, secondary: 0x495078, accent: 0xffe89a, css: "#101226", prop: "pillar", particle: 0xffffff },
+  { key: "data",        label: "運命データ空間", primary: 0x66d9ff, secondary: 0x09244a, accent: 0xb8f7ff, css: "#061426", prop: "grid",   particle: 0x77eaff },
+  { key: "nebula",      label: "星喰い暗黒星雲", primary: 0x61418f, secondary: 0x0a0613, accent: 0xff5b99, css: "#07040d", prop: "rock",   particle: 0x8b62dd },
+  { key: "court",       label: "銀河法廷光柱",   primary: 0xffdf85, secondary: 0x263052, accent: 0x9fd4ff, css: "#101425", prop: "pillar", particle: 0xffe6a3 },
+  { key: "memory",      label: "記憶ノイズ波",   primary: 0x3a3a66, secondary: 0x05050a, accent: 0xc266ff, css: "#05050a", prop: "wave",   particle: 0x8c7cff },
+  { key: "gravity",     label: "無重力リング",   primary: 0x8ca6ff, secondary: 0x121436, accent: 0xd0e2ff, css: "#090b20", prop: "ring",   particle: 0xaec2ff },
+  { key: "recycler",    label: "回収機関艦隊",   primary: 0xff9a3d, secondary: 0x26333f, accent: 0xff3344, css: "#10181c", prop: "beam",   particle: 0xffb36a },
+  { key: "perfect",     label: "白き完成都市",   primary: 0xf6fbff, secondary: 0x6d7d94, accent: 0x66ccff, css: "#111923", prop: "pillar", particle: 0xffffff },
+  { key: "lastgear",    label: "ラストギア星図", primary: 0xff3344, secondary: 0x150309, accent: 0xffd35a, css: "#070105", prop: "gear",   particle: 0xff4455 },
+];
+
+const stageTheme = (stage) => STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
+const hexCss = (color) => `#${color.toString(16).padStart(6, "0")}`;
+
 // 20ステージ：[stage, 星名, 星アイコン, 敵名, 敵絵文字, 系統, ギミック(説明)]
 // 敵HP/攻撃・報酬・スカウト出現レア度帯は stage から自動算出
 const RAW_STAGES = [
@@ -346,8 +373,9 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const center = Math.ceil(stage / 2);
   const rMin = Math.max(1, center - 1);
   const rMax = Math.min(10, center + 1);
+  const theme = stageTheme(stage);
   ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss };
-  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], boss, stage });
+  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme });
 });
 
 // ラスボスの登場セリフ
@@ -738,19 +766,66 @@ function initWorldmap() {
   wmScene.add(planet);
   wmScene.userData.planet = planet;
 
+  const themeGroup = new THREE.Group();
+  wmScene.add(themeGroup);
+  wmScene.userData.themeGroup = themeGroup;
+
   wmScene.add(new THREE.AmbientLight(0x8899ff, 0.6));
   const dir = new THREE.DirectionalLight(0xffffff, 1.0);
   dir.position.set(5, 10, 8);
   wmScene.add(dir);
 }
 
+function nextWorldmapStar() {
+  return STARS.find(star => !save.cleared.includes(star.id)) || STARS[STARS.length - 1];
+}
+
+function setMaterialColor(material, color) {
+  if (!material) return;
+  if (material.color?.setHex) material.color.setHex(color);
+  else material.color = color;
+}
+
+function setupWorldmapTheme() {
+  if (!wmScene) return;
+  const star = nextWorldmapStar();
+  const theme = star.theme || stageTheme(star.stage);
+  const host = document.getElementById("worldmap-space");
+  host.style.background = `radial-gradient(circle at 60% 25%, ${theme.css}, #05030f 70%)`;
+  if (wmScene.userData.planet) {
+    setMaterialColor(wmScene.userData.planet.material, theme.secondary);
+  }
+  const group = wmScene.userData.themeGroup;
+  clearGroup(group);
+  for (let i = 0; i < 7; i++) {
+    const ring = new THREE.Mesh(
+      i % 2 === 0
+        ? new THREE.TorusGeometry(10 + i * 3.1, 0.04 + i * 0.006, 8, 42)
+        : new THREE.IcosahedronGeometry(0.8 + i * 0.12, 0),
+      new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? theme.accent : theme.primary, transparent: true, opacity: 0.45 })
+    );
+    ring.position.set((i - 3) * 5, (Math.random() - 0.5) * 24, -18 - i * 3);
+    ring.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
+    ring.userData = { spin: 0.0015 + i * 0.0004 };
+    group.add(ring);
+  }
+}
+
 function startWorldmap() {
   if (!wmRenderer) initWorldmap();
+  setupWorldmapTheme();
   resizeRenderer(wmRenderer, document.getElementById("worldmap-space"));
   const loop = () => {
     wmStars.rotation.y += 0.0004;
     wmStars.rotation.x += 0.0002;
     if (wmScene.userData.planet) wmScene.userData.planet.rotation.y += 0.003;
+    if (wmScene.userData.themeGroup) {
+      wmScene.userData.themeGroup.rotation.z += 0.0008;
+      wmScene.userData.themeGroup.children.forEach(o => {
+        o.rotation.x += o.userData.spin || 0.001;
+        o.rotation.y += (o.userData.spin || 0.001) * 0.7;
+      });
+    }
     wmRenderer.render(wmScene, wmCamera);
     wmRAF = requestAnimationFrame(loop);
   };
@@ -762,17 +837,26 @@ function stopWorldmap() { cancelAnimationFrame(wmRAF); }
 function renderStarList() {
   const list = document.getElementById("star-list");
   list.innerHTML = "";
+  const nextIndex = STARS.findIndex(star => !save.cleared.includes(star.id));
   STARS.forEach((star, i) => {
     const cleared = save.cleared.includes(star.id);
     // 直前の星をクリアしていれば解放（最初の星は常に解放）
     const unlocked = i === 0 || save.cleared.includes(STARS[i-1].id);
     const card = document.createElement("div");
-    card.className = "star-card" + (unlocked ? "" : " locked") + (cleared ? " cleared" : "");
+    const current = unlocked && !cleared && (nextIndex === -1 ? i === STARS.length - 1 : i === nextIndex);
+    card.className = "star-card"
+      + (unlocked ? "" : " locked")
+      + (cleared ? " cleared" : "")
+      + (current ? " current" : "")
+      + ` cat-${star.catKey || ""}`;
+    card.style.setProperty("--star-color", hexCss(star.theme.primary));
+    card.style.setProperty("--star-accent", hexCss(star.theme.accent));
     card.innerHTML = `
+      <div class="star-route"></div>
       <div class="star-icon">${star.icon}</div>
       <div class="star-info">
         <div class="star-name">${star.boss ? "👑 " : ""}${star.stage}. ${star.name}</div>
-        <div class="star-desc"><span class="star-cat">${star.cat}</span> ${star.desc}</div>
+        <div class="star-desc"><span class="star-cat">${star.cat}</span> <span class="star-theme">${star.theme.label}</span> ${star.desc}</div>
       </div>
       ${cleared ? '<span class="star-badge">クリア済</span>' : `<span class="star-badge" style="background:rgba(110,200,255,.18);color:var(--accent)">💎${star.reward}</span>`}
     `;
@@ -832,7 +916,7 @@ const WIPE_RETURN_MS = 1100;
 
 const SH = {
   renderer: null, scene: null, camera: null, raf: null,
-  ship: null, wingL: null, wingR: null,
+  ship: null, wingL: null, wingR: null, stageBg: null,
   bullets: [], rocks: [], enemies: [], crystals: [],
   hp: MAX_HP, gained: 0, timeLeft: STAGE_TIME, lastShot: 0, lastSpawn: 0,
   running: false, targetX: 0, targetY: 0, startT: 0,
@@ -879,6 +963,8 @@ function initShooting() {
   starGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
   SH.bgStars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x99bbff, size: 0.3 }));
   SH.scene.add(SH.bgStars);
+  SH.stageBg = new THREE.Group();
+  SH.scene.add(SH.stageBg);
 
   // ライト
   SH.scene.add(new THREE.AmbientLight(0xaabbff, 0.7));
@@ -982,6 +1068,91 @@ function buildShip() {
   return g;
 }
 
+function clearGroup(group) {
+  if (!group || !group.children) return;
+  while (group.children.length) group.remove(group.children[0]);
+}
+
+function themedMaterial(color, emissive = 0x000000) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive,
+    emissiveIntensity: 0.35,
+    roughness: 0.65,
+    metalness: 0.25,
+    flatShading: true,
+  });
+}
+
+function makeThemeProp(theme, i) {
+  const kind = theme.prop;
+  const color = i % 3 === 0 ? theme.accent : (i % 2 === 0 ? theme.primary : theme.secondary);
+  let geo;
+  if (kind === "gear" || kind === "ring") geo = new THREE.TorusGeometry(0.8 + (i % 3) * 0.28, 0.08 + (i % 2) * 0.04, 8, 18);
+  else if (kind === "crate" || kind === "grid") geo = new THREE.BoxGeometry(0.9 + (i % 3) * 0.25, 0.35, 0.35);
+  else if (kind === "pillar" || kind === "beam") geo = new THREE.CylinderGeometry(0.18, 0.28, 1.5 + (i % 4) * 0.45, 8);
+  else if (kind === "coin") geo = new THREE.CylinderGeometry(0.55, 0.55, 0.12, 20);
+  else if (kind === "gem") geo = new THREE.OctahedronGeometry(0.56 + (i % 2) * 0.16, 0);
+  else if (kind === "wave") geo = new THREE.TorusGeometry(0.7 + (i % 3) * 0.32, 0.05, 8, 18);
+  else geo = new THREE.IcosahedronGeometry(0.55 + (i % 3) * 0.18, 0);
+
+  const mesh = new THREE.Mesh(geo, themedMaterial(color, theme.secondary));
+  mesh.position.set((Math.random() - 0.5) * 10.5, FLIGHT_SPAWN_Y + i * 1.1, -1.5 - (i % 4) * 1.1);
+  mesh.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
+  mesh.userData = {
+    type: "themeProp",
+    drift: 0.45 + (i % 4) * 0.12,
+    spin: 0.004 + (i % 5) * 0.003,
+    resetY: FLIGHT_SPAWN_Y + 9 + Math.random() * 4,
+  };
+  return mesh;
+}
+
+function setupStageFlightBackground(star) {
+  if (!SH.stageBg) return;
+  const theme = star.theme || stageTheme(star.stage);
+  clearGroup(SH.stageBg);
+  const host = document.getElementById("shooting-canvas");
+  host.style.background = `radial-gradient(circle at 50% 20%, ${theme.css}, #02020a 70%)`;
+
+  const geo = new THREE.BufferGeometry();
+  const N = 220;
+  const pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    pos[i*3] = (Math.random() - 0.5) * 14;
+    pos[i*3+1] = FLIGHT_DESPAWN_Y + Math.random() * (FLIGHT_SPAWN_Y - FLIGHT_DESPAWN_Y + 9);
+    pos[i*3+2] = -2 - Math.random() * 18;
+  }
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const points = new THREE.Points(geo, new THREE.PointsMaterial({ color: theme.particle, size: 0.24, transparent: true, opacity: 0.85 }));
+  points.userData = { type: "themeParticles", speed: 1.2 };
+  SH.stageBg.add(points);
+
+  const propCount = star.boss ? 14 : 8;
+  for (let i = 0; i < propCount; i++) SH.stageBg.add(makeThemeProp(theme, i));
+}
+
+function animateStageFlightBackground(dt, now) {
+  if (!SH.stageBg) return;
+  SH.stageBg.children.forEach((o, i) => {
+    if (o.userData?.type === "themeParticles") {
+      o.position.y -= o.userData.speed * dt;
+      if (o.position.y < -10) o.position.y = 0;
+      return;
+    }
+    if (o.userData?.type === "themeProp") {
+      o.position.y -= o.userData.drift * dt;
+      o.rotation.x += o.userData.spin;
+      o.rotation.y += o.userData.spin * 0.7;
+      o.rotation.z += o.userData.spin * 1.2;
+      if (o.position.y < FLIGHT_DESPAWN_Y - 1.5) {
+        o.position.y = o.userData.resetY;
+        o.position.x = (Math.random() - 0.5) * 10.5;
+      }
+    }
+  });
+}
+
 // 縦型航行：画面上から下へ流れるレーン
 const spawnX = () => (Math.random() - 0.5) * (FLIGHT_X_LIMIT * 1.8);
 const spawnTopY = () => FLIGHT_SPAWN_Y + Math.random() * 0.9;
@@ -1067,6 +1238,7 @@ function spawnLaser(pos, w, color, dmg) {
 function startShooting(star) {
   if (!SH.renderer) initShooting();
   resizeRenderer(SH.renderer, document.getElementById("shooting-canvas"));
+  setupStageFlightBackground(star);
   // リセット
   [...SH.bullets, ...SH.rocks, ...SH.enemies, ...SH.crystals].forEach(o => SH.scene.remove(o));
   SH.bullets = []; SH.rocks = []; SH.enemies = []; SH.crystals = [];
@@ -1126,6 +1298,7 @@ function updateShooting(dt, now) {
   // 背景流れ（上へ進んでいるように、星が下へ流れる）
   SH.bgStars.position.y -= 9 * dt;
   if (SH.bgStars.position.y < -60) SH.bgStars.position.y = 0;
+  animateStageFlightBackground(dt, now);
 
   // 船移動（縦型：画面下で左右移動中心）
   if (SH.keyDir) SH.targetX = clamp(SH.targetX + SH.keyDir * 8.5 * dt, -FLIGHT_X_LIMIT, FLIGHT_X_LIMIT);
