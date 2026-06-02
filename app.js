@@ -2139,50 +2139,129 @@ function disposeBattleScene() {
 }
 
 // -------------------------------------------------------------
-// ラスボス最終演出（仮・Part2の土台）
+// ラスボス最終演出（本番寄り）
+// テキスト＋CSSフェード＋背景変化（覚醒）でビート進行。PNGは後で差し替え可能
 // -------------------------------------------------------------
+const FINAL_SCOUT_LABELS = ["スカウト", "スカウ…", "ス…"]; // 崩れていくラベル
+const ENDING_LINE = "固定された運命に、はぐれ者たちの航路が刻まれた";
+
+// 演出ビート。kind: line(セリフ) / scout(崩れ) / awaken(覚醒) / hope(希望の選択)
+const FINAL_SCRIPT = [
+  { kind: "line", sp: "", text: "――運命固定装置 ラストギア。撃破した……かに見えた。" },
+  { kind: "line", sp: "ラストギア", text: "弱い者に、未来を変える力などない" },
+  { kind: "line", sp: "ラストギア", text: "迷う者、壊れた者、選ばれなかった者" },
+  { kind: "line", sp: "ラストギア", text: "それらはすべて、銀河の誤差だ" },
+  { kind: "line", sp: "仲間たち", text: "ひとり、またひとりと、はじき出されていく――" },
+  { kind: "line", sp: "", text: "主人公だけが、残されようとしている。" },
+  { kind: "scout" }, // 弱いまま、それでも立ち上がり続ける（スカウトが崩れる）
+  { kind: "line", sp: "はぐれ飛行船オルカ号", text: "――その身を、主人公の前へ滑り込ませた。" },
+  { kind: "line", sp: "オルカ号", text: "航路確認" },
+  { kind: "line", sp: "オルカ号", text: "99の声を受信" },
+  { kind: "line", sp: "オルカ号", text: "はぐれ団、全員搭乗確認" },
+  { kind: "line", sp: "オルカ号", text: "これより、運命固定装置へ突入します" },
+  { kind: "awaken" }, // 99人の想いでオルカ号が覚醒（背景変化）
+  { kind: "line", sp: "ピノ", text: "……ちがいます" },
+  { kind: "line", sp: "ピノ", text: "ぼくたちは、たしかに迷いました" },
+  { kind: "line", sp: "ピノ", text: "でも、ここまで来ました" },
+  { kind: "line", sp: "ラストギア", text: "そんな未来を知っていれば、私にも……", demon: true },
+  { kind: "hope" }, // 「はぐれ団」らしい希望の選択肢 → エンディング
+];
+
+let finalStep = 0;
 let finalScoutPresses = 0;
-const FINAL_SCOUT_LABELS = ["スカウト", "スカウト", "スカウ…", "ス…"];
-const DEMON_LAST_LINE = "そんな未来を知っていれば、私にも…";
+let finalTimer = null;
 
 function enterFinalPhase() {
   finalPhase = true;
+  finalStep = 0;
   finalScoutPresses = 0;
-  // ステージ20到達＝クリア扱いにしておく（仮）
+  clearTimeout(finalTimer);
+  // ステージ20到達＝クリア扱いにしておく
   if (currentStar && !save.cleared.includes(currentStar.id)) { save.cleared.push(currentStar.id); persist(); }
+  document.getElementById("screen-final").classList.remove("awakening");
   show("final");
-  renderFinalPhase();
+  renderFinalStep();
 }
 
-function renderFinalPhase() {
-  const msg = document.getElementById("final-msg");
-  const btn = document.getElementById("final-scout-btn");
-  const demon = document.getElementById("final-demon-line");
-  msg.textContent = "仲間は みな たおれた……主人公だけが 残った。";
-  demon.textContent = "";
-  btn.style.display = ""; btn.textContent = "スカウト";
+function setFadeText(el, text) {
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
 }
 
-function pressFinalScout() {
-  finalScoutPresses++;
+function renderFinalStep() {
+  const beat = FINAL_SCRIPT[finalStep];
+  const sp = document.getElementById("final-speaker");
   const msg = document.getElementById("final-msg");
-  const btn = document.getElementById("final-scout-btn");
-  const demon = document.getElementById("final-demon-line");
-  if (finalScoutPresses <= FINAL_SCOUT_LABELS.length) {
-    // 1〜4回目：表示が崩れていく（スカウト→スカウト→スカウ…→ス…）
-    btn.textContent = FINAL_SCOUT_LABELS[finalScoutPresses - 1];
-    msg.textContent = finalScoutPresses >= 3 ? "それでも 立ち上がる……" : "スカウト…… 失敗。";
-  } else {
-    // 5回目：魔王の最後のセリフ → エンディング仮画面
-    btn.style.display = "none";
-    msg.textContent = "魔王は 主人公の姿を 見て……崩れていく。";
-    demon.textContent = `「${DEMON_LAST_LINE}」`;
-    setTimeout(() => show("ending"), 3500);
+  const actions = document.getElementById("final-actions");
+  if (!beat) { goEnding(); return; }
+
+  if (beat.kind === "line") {
+    sp.textContent = beat.sp || "";
+    msg.className = "final-msg" + (beat.demon ? " demon" : "");
+    setFadeText(msg, beat.text);
+    actions.innerHTML = `<button class="btn final-next-btn" data-action="final-next">▶ つぎへ</button>`;
+  } else if (beat.kind === "scout") {
+    finalScoutPresses = 0;
+    sp.textContent = "主人公";
+    msg.className = "final-msg";
+    setFadeText(msg, "主人公は「スカウト」しか できない。それでも、立ち上がる――");
+    actions.innerHTML = `<button class="btn btn-primary final-scout-btn" id="final-scout-btn" data-action="final-scout">スカウト</button>`;
+  } else if (beat.kind === "awaken") {
+    sp.textContent = "";
+    msg.className = "final-msg";
+    setFadeText(msg, "99人のはぐれ者の想いが、オルカ号に流れ込む――");
+    document.getElementById("screen-final").classList.add("awakening");
+    actions.innerHTML = `<div class="final-awaken-word">オルカ号 ―― 覚醒</div>`;
+    clearTimeout(finalTimer);
+    finalTimer = setTimeout(() => advanceFinal(), 2200); // タップでも進める
+  } else if (beat.kind === "hope") {
+    sp.textContent = "";
+    msg.className = "final-msg";
+    setFadeText(msg, "「はぐれ団」――選ばれなかった者たちの、最後の選択。");
+    actions.innerHTML = `<button class="btn btn-primary final-hope-btn" data-action="final-hope">▶ みんなで、行く</button>`;
   }
 }
 
+function advanceFinal() {
+  clearTimeout(finalTimer);
+  finalStep++;
+  if (finalStep >= FINAL_SCRIPT.length) { goEnding(); return; }
+  renderFinalStep();
+}
+
+function pressFinalScout() {
+  const btn = document.getElementById("final-scout-btn");
+  if (!btn) return;
+  finalScoutPresses++;
+  if (finalScoutPresses < FINAL_SCOUT_LABELS.length) {
+    btn.textContent = FINAL_SCOUT_LABELS[finalScoutPresses]; // スカウ… → ス…
+  } else {
+    // 崩れ切ったら次のビートへ
+    btn.textContent = "ス…";
+    advanceFinal();
+  }
+}
+
+function goEnding() {
+  finalPhase = false;
+  clearTimeout(finalTimer);
+  document.getElementById("screen-final").classList.remove("awakening");
+  const lineEl = document.getElementById("ending-line");
+  if (lineEl) lineEl.textContent = `「${ENDING_LINE}」`;
+  show("ending");
+}
+
 document.querySelector("#screen-final").addEventListener("click", (e) => {
-  if (e.target.closest('[data-action="final-scout"]')) pressFinalScout();
+  const action = e.target.closest("[data-action]")?.dataset.action;
+  if (action === "final-next") return advanceFinal();
+  if (action === "final-scout") return pressFinalScout();
+  if (action === "final-hope") return goEnding();
+  // ボタン以外のタップでも line / awaken は進める
+  if (!e.target.closest("button")) {
+    const beat = FINAL_SCRIPT[finalStep];
+    if (beat && (beat.kind === "line" || beat.kind === "awaken")) advanceFinal();
+  }
 });
 document.querySelector("#screen-ending").addEventListener("click", (e) => {
   if (e.target.closest('[data-action="ending-title"]')) show("title");

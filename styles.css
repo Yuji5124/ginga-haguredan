@@ -1115,14 +1115,38 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 #battle-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 #screen-battle .battle-field, #screen-battle .battle-ui { position: relative; z-index: 1; }
 
-/* ===== v0.7 ラスボス最終演出（仮） ===== */
-#screen-final { background: radial-gradient(circle at 50% 40%, #2a0a1a, #05030f); align-items: center; justify-content: center; }
-.final-inner { text-align: center; padding: 24px; max-width: 360px; }
-.final-title { font-size: 22px; color: #f88; letter-spacing: .1em; margin-bottom: 18px; text-shadow: 0 0 18px rgba(255,80,80,.5); }
-.final-msg { font-size: 15px; color: #eaf0ff; line-height: 1.6; min-height: 48px; }
-.final-demon-line { font-size: 17px; font-weight: 800; color: #f9c; margin-top: 16px; min-height: 26px; text-shadow: 0 0 14px rgba(255,80,120,.6); }
-.final-scout-btn { margin-top: 24px; width: 200px; }
-#screen-ending { background: radial-gradient(circle at 50% 40%, #101630, #05030f); align-items: center; justify-content: center; }
-.ending-inner { text-align: center; padding: 24px; }
+/* ===== ラスボス最終演出 ===== */
+#screen-final { background: radial-gradient(circle at 50% 35%, #2a0a1a, #05030f); align-items: center; justify-content: center; overflow: hidden; }
+/* CSSによる宇宙背景（星＋ゆらぎ）。覚醒時に色が変化 */
+.final-bg {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+    radial-gradient(1px 1px at 70% 60%, #bcf, transparent),
+    radial-gradient(1px 1px at 40% 80%, #fff, transparent),
+    radial-gradient(2px 2px at 85% 25%, #9cf, transparent),
+    radial-gradient(1px 1px at 55% 15%, #fff, transparent);
+  background-size: 240px 240px;
+  opacity: .7; animation: drift 60s linear infinite;
+  transition: filter 1.2s, opacity 1.2s;
+}
+.final-inner { position: relative; z-index: 1; text-align: center; padding: 24px; max-width: 360px; width: 100%; }
+.final-speaker { font-size: 13px; font-weight: 800; color: #8fd0ff; letter-spacing: .08em; min-height: 18px; text-shadow: 0 1px 4px #000; }
+.final-msg { font-size: 16px; color: #eaf0ff; line-height: 1.7; margin-top: 10px; min-height: 60px; }
+.final-msg.show { animation: arrivalIn .45s ease; }
+.final-msg.demon { font-weight: 800; color: #f9c; text-shadow: 0 0 14px rgba(255,80,120,.6); }
+.final-actions { margin-top: 26px; min-height: 52px; display: flex; align-items: center; justify-content: center; }
+.final-next-btn { font-size: 14px; padding: 12px 22px; opacity: .9; }
+.final-scout-btn { width: 200px; }
+.final-hope-btn { width: 240px; font-size: 17px; }
+.final-awaken-word { font-size: 24px; font-weight: 900; color: #ffe27a; letter-spacing: .12em; text-shadow: 0 0 24px rgba(120,220,255,.9); animation: arrivalIn .5s ease; }
+
+/* 覚醒：背景が青白く輝く */
+#screen-final.awakening { background: radial-gradient(circle at 50% 40%, #123a55, #05030f); }
+#screen-final.awakening .final-bg { filter: brightness(2.4) drop-shadow(0 0 8px #6cf); opacity: 1; }
+
+#screen-ending { background: radial-gradient(circle at 50% 40%, #101630, #05030f); align-items: center; justify-content: center; overflow: hidden; }
+.ending-inner { position: relative; z-index: 1; text-align: center; padding: 24px; max-width: 360px; }
 .ending-title { font-size: 26px; color: #9cf; letter-spacing: .08em; text-shadow: 0 0 24px rgba(120,160,255,.5); }
-.ending-sub { font-size: 13px; color: #9ab; margin: 12px 0 28px; }
+.ending-line { font-size: 15px; font-weight: 700; color: #dfe8ff; line-height: 1.6; margin: 16px 0 10px; text-shadow: 0 0 12px rgba(120,160,255,.4); }
+.ending-sub { font-size: 12px; color: #9ab; margin: 4px 0 26px; }
