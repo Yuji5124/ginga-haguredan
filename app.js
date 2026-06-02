@@ -471,6 +471,13 @@ function resetSave() {
   persist();
 }
 
+// ラスボス挑戦に必要な仲間数（No.1〜99）。No.100 オルカ号は特別枠で除外
+const REQUIRED_HEROES = 99;
+// 図鑑（発見済み）に登録された No.1〜99 の人数。重複は元々なし／データ無しでも0
+function heroCount() {
+  return (save.discovered || []).filter(id => id !== "c100" && /^c\d+$/.test(id)).length;
+}
+
 // -------------------------------------------------------------
 // 画像アセット（PNGがあれば使う / なければ絵文字フォールバック）
 // -------------------------------------------------------------
@@ -838,29 +845,53 @@ function renderStarList() {
   const list = document.getElementById("star-list");
   list.innerHTML = "";
   const nextIndex = STARS.findIndex(star => !save.cleared.includes(star.id));
+  const hc = heroCount();
   STARS.forEach((star, i) => {
     const cleared = save.cleared.includes(star.id);
     // 直前の星をクリアしていれば解放（最初の星は常に解放）
-    const unlocked = i === 0 || save.cleared.includes(STARS[i-1].id);
+    const prevCleared = i === 0 || save.cleared.includes(STARS[i-1].id);
+    let unlocked = prevCleared;
+    // ラスボス：直前クリア済みでも No.1〜99 が99人未満なら挑戦不可（理由を表示しタップ可）
+    let heroGate = false;
+    if (star.boss && prevCleared && hc < REQUIRED_HEROES) { heroGate = true; unlocked = false; }
     const card = document.createElement("div");
     const current = unlocked && !cleared && (nextIndex === -1 ? i === STARS.length - 1 : i === nextIndex);
     card.className = "star-card"
-      + (unlocked ? "" : " locked")
+      + (!unlocked && !heroGate ? " locked" : "")
       + (cleared ? " cleared" : "")
       + (current ? " current" : "")
       + ` cat-${star.catKey || ""}`;
     card.style.setProperty("--star-color", hexCss(star.theme.primary));
     card.style.setProperty("--star-accent", hexCss(star.theme.accent));
+    if (heroGate) { card.style.opacity = "0.9"; card.style.borderColor = "rgba(255,120,120,.5)"; }
+
+    let descHtml, badgeHtml;
+    if (star.boss && heroGate) {
+      descHtml = `<span class="star-cat">${star.cat}</span> 🔒 ラスボスに挑むには99人のはぐれ者の力が必要 ／ <b style="color:#fd6">現在 ${hc} / ${REQUIRED_HEROES}人</b>`;
+      badgeHtml = `<span class="star-badge" style="background:rgba(255,90,90,.18);color:#f88">🔒</span>`;
+    } else if (star.boss && unlocked && !cleared) {
+      descHtml = `<span class="star-cat">${star.cat}</span> ⚡ 99人のはぐれ者が集まった！ ラストギアへの航路が開いた！`;
+      badgeHtml = `<span class="star-badge" style="background:rgba(255,216,90,.2);color:var(--gold)">挑戦可</span>`;
+    } else {
+      descHtml = `<span class="star-cat">${star.cat}</span> <span class="star-theme">${star.theme.label}</span> ${star.desc}`;
+      badgeHtml = cleared ? '<span class="star-badge">クリア済</span>' : `<span class="star-badge" style="background:rgba(110,200,255,.18);color:var(--accent)">💎${star.reward}</span>`;
+    }
+
     card.innerHTML = `
       <div class="star-route"></div>
       <div class="star-icon">${star.icon}</div>
       <div class="star-info">
         <div class="star-name">${star.boss ? "👑 " : ""}${star.stage}. ${star.name}</div>
-        <div class="star-desc"><span class="star-cat">${star.cat}</span> <span class="star-theme">${star.theme.label}</span> ${star.desc}</div>
+        <div class="star-desc">${descHtml}</div>
       </div>
-      ${cleared ? '<span class="star-badge">クリア済</span>' : `<span class="star-badge" style="background:rgba(110,200,255,.18);color:var(--accent)">💎${star.reward}</span>`}
+      ${badgeHtml}
     `;
-    if (unlocked) card.addEventListener("click", () => startStage(star));
+    if (heroGate) {
+      card.addEventListener("click", () =>
+        toast(`まだ仲間が足りない… あと ${REQUIRED_HEROES - hc} 人。銀河中のはぐれ者をもっと探そう`));
+    } else if (unlocked) {
+      card.addEventListener("click", () => startStage(star));
+    }
     list.appendChild(card);
   });
 }
@@ -1712,7 +1743,8 @@ function finishArrival() {
   if (!arrivalStar) return;        // 二重実行ガード
   clearTimeout(arrivalTimer);
   const s = arrivalStar; arrivalStar = null;
-  if (s.stage === 1) playPinoScene(s);
+  if (s.stage === 1) playPinoScene(s, PINO_PRE_BATTLE_LINES);
+  else if (s.boss) playPinoScene(s, PINO_BOSS_LINES);   // ラスボス前のピノの口上
   else startBattle(s);
 }
 // タップでスキップ
@@ -1729,11 +1761,20 @@ const PINO_PRE_BATTLE_LINES = [
   "でも、いっしょに進むことはできます",
   "行きましょう。最初の一歩です",
 ];
+// ラスボス前のピノの口上（99人を集めて到達したとき）
+const PINO_BOSS_LINES = [
+  "みんな、そろいました",
+  "弱くても、迷っても、ここまで来ました",
+  "99人のはぐれ者の声が、オルカ号を動かしています",
+  "行きましょう。運命を、固定させないために",
+];
 let pinoSceneStar = null;
 let pinoLineIndex = 0;
+let pinoLines = PINO_PRE_BATTLE_LINES;
 
-function playPinoScene(star) {
+function playPinoScene(star, lines) {
   pinoSceneStar = star;
+  pinoLines = lines || PINO_PRE_BATTLE_LINES;
   pinoLineIndex = 0;
   show("pino");
   renderPinoLine();
@@ -1741,16 +1782,16 @@ function playPinoScene(star) {
 
 function renderPinoLine() {
   const el = document.getElementById("pino-line");
-  el.textContent = PINO_PRE_BATTLE_LINES[pinoLineIndex] || "";
+  el.textContent = pinoLines[pinoLineIndex] || "";
   el.classList.remove("show");
   void el.offsetWidth;
   el.classList.add("show");
   document.querySelector('[data-action="pino-next"]').textContent =
-    pinoLineIndex >= PINO_PRE_BATTLE_LINES.length - 1 ? "戦闘へ" : "次へ";
+    pinoLineIndex >= pinoLines.length - 1 ? "戦闘へ" : "次へ";
 }
 
 function advancePinoScene() {
-  if (pinoLineIndex >= PINO_PRE_BATTLE_LINES.length - 1) return finishPinoScene();
+  if (pinoLineIndex >= pinoLines.length - 1) return finishPinoScene();
   pinoLineIndex++;
   renderPinoLine();
 }
@@ -2111,16 +2152,20 @@ document.querySelector("#screen-dex").addEventListener("click", (e) => {
 function renderDex() {
   const grid = document.getElementById("dex-grid");
   grid.innerHTML = "";
-  document.getElementById("dex-total").textContent = ALLIES.length;
-  document.getElementById("dex-count").textContent = save.discovered.length;
+  // 図鑑カウントは「はぐれ者（No.1〜99）」の収集数を表示。No.100 は特別枠
+  document.getElementById("dex-total").textContent = REQUIRED_HEROES;
+  document.getElementById("dex-count").textContent = heroCount();
   ALLIES.forEach((a, i) => {
     const found = save.discovered.includes(a.id);
     const joined = save.recruited.includes(a.id);
+    const special = a.id === "c100"; // はぐれ飛行船オルカ号＝特別枠
     const cell = document.createElement("div");
-    cell.className = "dex-cell" + (found ? "" : " unknown") + (joined ? " joined" : "");
-    const badge = !found ? "" : joined
-      ? `<div class="dc-badge joined">加入済み</div>`
-      : `<div class="dc-badge found">発見済み</div>`;
+    cell.className = "dex-cell" + (found ? "" : " unknown") + (joined ? " joined" : "") + (special ? " special" : "");
+    const badge = special
+      ? (found ? `<div class="dc-badge joined">特別枠</div>` : `<div class="dc-badge found">特別枠</div>`)
+      : (!found ? "" : joined
+        ? `<div class="dc-badge joined">加入済み</div>`
+        : `<div class="dc-badge found">発見済み</div>`);
     cell.innerHTML = `
       <div class="dc-face">${found ? faceHTML(a.face, `characters/${a.img}`) : "❔"}</div>
       <div class="dc-rarity">★${a.rarity}</div>
@@ -2172,5 +2217,13 @@ window.GAME = {
   setBonus: (type) => { stageBonus = (MISSIONS.find(m => m.bonus.type === type) || {}).bonus || null; return stageBonus; },
   get bonus() { return stageBonus; },
   get sh() { return SH; },
+  get heroes() { return heroCount(); },                 // 現在の仲間収集数（No.1〜99）
+  heroNeeded: () => Math.max(0, REQUIRED_HEROES - heroCount()),
+  // デバッグ：No.1〜n を図鑑「発見済み」に登録（99人ゲート確認用）
+  discoverHeroes: (n = REQUIRED_HEROES) => {
+    for (let k = 1; k <= n; k++) { const id = "c" + k; if (!save.discovered.includes(id)) save.discovered.push(id); }
+    persist();
+    return heroCount();
+  },
   reset: resetSave,
 };
