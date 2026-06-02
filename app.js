@@ -503,13 +503,161 @@ function refreshCrystals() {
 }
 
 // -------------------------------------------------------------
+// オープニング
+// -------------------------------------------------------------
+const INTRO_SCENES = [
+  {
+    type: "crawl",
+    tone: "stars",
+    title: "銀河はぐれ団",
+    symbol: "✦",
+    image: null,
+    body: [
+      "はるか銀河の片すみ。",
+      "強い者だけが価値を持つ時代。",
+      "弱い者、古い者、役目を失った者たちは",
+      "「はぐれ者」と呼ばれていた。",
+      "",
+      "主人公の暮らす小さな星も、",
+      "その流れにのみこまれようとしていた。",
+      "",
+      "まだ何者でもない旅。",
+      "だがその出会いが、",
+      "銀河の運命を変えることになる――",
+    ],
+  },
+  {
+    type: "text",
+    tone: "danger",
+    title: "襲撃",
+    symbol: "🚨",
+    image: null,
+    body: [
+      "警報――警報――",
+      "居住区に被害発生。",
+      "至急、避難してください。",
+      "",
+      "……ぼくの星が、なくなる。",
+      "逃げなきゃ。",
+    ],
+  },
+  {
+    type: "text",
+    tone: "escape",
+    title: "小さな飛行船",
+    symbol: "🚀",
+    image: null,
+    body: [
+      "主人公は、古い飛行船に飛び乗った。",
+      "あてもなく、宇宙へ飛び出す。",
+      "",
+      "行き先は、ただひとつ。",
+      "生きのびること。",
+    ],
+  },
+  {
+    type: "text",
+    tone: "trash",
+    title: "宇宙のごみすてば",
+    symbol: "🛰️",
+    image: null,
+    body: [
+      "たどり着いた先は――",
+      "宇宙のごみすてば。",
+      "",
+      "捨てられた機械。",
+      "こわれた部品。",
+      "だれにも選ばれなかったものたち。",
+      "",
+      "でも、そこで主人公は出会う。",
+    ],
+  },
+  {
+    type: "dialog",
+    tone: "pino",
+    title: "まいごロボ・ピノ",
+    symbol: "🤖",
+    image: null,
+    body: [
+      "「……みち、まちがえました」",
+      "",
+      "そこにいたのは、ちいさな案内ロボ。",
+      "たよりない。弱そう。だけど――",
+      "ひとりじゃなかった。",
+      "",
+      "「ぼく、ピノ。あんない……できないことも、あります」",
+      "「でも、いっしょなら、どこかへ行けるかもしれません」",
+      "「きぼう、って……そういうものですか？」",
+    ],
+  },
+  {
+    type: "text",
+    tone: "hope",
+    title: "旅のはじまり",
+    symbol: "🌟",
+    image: null,
+    body: [
+      "主人公は、ピノを乗せて飛行船を動かした。",
+      "この出会いが、旅のはじまりになる。",
+      "",
+      "銀河には、まだたくさんの“はぐれ者”がいる。",
+      "仲間を探しに行こう。",
+      "",
+      "最初の航行が始まる――",
+    ],
+  },
+];
+
+let introIndex = 0;
+
+function startIntro() {
+  introIndex = 0;
+  show("intro");
+  renderIntroScene();
+}
+
+function renderIntroScene() {
+  const scene = INTRO_SCENES[introIndex];
+  const stage = document.getElementById("intro-stage");
+  const visual = document.getElementById("intro-visual");
+  const title = document.getElementById("intro-title");
+  const body = document.getElementById("intro-body");
+  const next = document.querySelector('[data-action="intro-next"]');
+
+  stage.className = `intro-stage is-${scene.type} tone-${scene.tone}`;
+  visual.innerHTML = scene.image ? `<img src="${scene.image}" alt="">` : (scene.symbol || "");
+  title.textContent = scene.title || "";
+  body.innerHTML = scene.body.map(line => line ? `<p>${line}</p>` : `<p class="intro-gap"></p>`).join("");
+  next.textContent = introIndex === INTRO_SCENES.length - 1 ? "航行開始" : "次へ";
+}
+
+function advanceIntro() {
+  if (introIndex >= INTRO_SCENES.length - 1) return finishIntro();
+  introIndex++;
+  renderIntroScene();
+}
+
+function finishIntro() {
+  currentStar = STARS[0];
+  show("shooting");
+  startShooting(currentStar);
+}
+
+document.querySelector("#screen-intro").addEventListener("click", (e) => {
+  const actionEl = e.target.closest("[data-action]");
+  if (actionEl?.dataset.action === "intro-skip") return finishIntro();
+  if (actionEl?.dataset.action === "intro-next") return advanceIntro();
+  if (!e.target.closest("button")) advanceIntro();
+});
+
+// -------------------------------------------------------------
 // タイトル
 // -------------------------------------------------------------
 document.querySelector("#screen-title").addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");
   if (!el) return;
   switch (el.dataset.action) {
-    case "start-game":
+    case "start-game":    startIntro(); break;
     case "continue":      show("worldmap"); break;
     case "open-dex-title": dexReturn = "title"; show("dex"); break;
     case "party":          show("party"); break;
