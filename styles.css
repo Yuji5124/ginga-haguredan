@@ -433,11 +433,43 @@ html, body {
 @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-10px);} 75%{transform:translateX(10px);} }
 .enemy-sprite { font-size: 90px; filter: drop-shadow(0 0 20px rgba(180,120,255,.5)); }
 .enemy-sprite img { width: 140px; height: 140px; object-fit: contain; }
-.enemy-name { font-size: 16px; font-weight: 700; margin-top: 6px; }
+
+/* 敵の名前＋系統タグ */
+.enemy-name-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.enemy-name { font-size: 17px; font-weight: 800; text-shadow: 0 1px 4px #000; }
+.enemy-cat {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid currentColor; background: rgba(0,0,0,.3);
+}
+.enemy-cat.cat-bio     { color: #7de08a; }
+.enemy-cat.cat-robo    { color: #6cc6ff; }
+.enemy-cat.cat-villain { color: #ff9a5a; }
+.enemy-cat.cat-concept { color: #c79cff; }
+
+/* HPバー（見やすく） */
 .hpbar { height: 8px; background: rgba(0,0,0,.5); border-radius: 4px; overflow: hidden; margin-top: 6px; }
-.enemy-hpbar { width: 180px; height: 12px; margin: 6px auto 0; border: 1px solid rgba(255,255,255,.25); }
-#enemy-hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #f44, #fb4); transition: width .25s; }
-.enemy-hp-text { font-size: 12px; font-weight: 700; color: #fca; margin-top: 3px; text-shadow: 0 1px 3px #000; }
+.enemy-hpbar { width: 200px; height: 14px; margin: 8px auto 0; border: 1px solid rgba(255,255,255,.35); border-radius: 7px; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+#enemy-hp-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #f33, #fa3 70%, #fd6); transition: width .25s; }
+.enemy-hp-text { font-size: 12px; font-weight: 700; color: #ffd9b0; margin-top: 4px; letter-spacing: .04em; text-shadow: 0 1px 3px #000; }
+
+/* ギミック説明 */
+.enemy-gimmick {
+  margin: 8px auto 0; max-width: 280px; font-size: 12px; font-weight: 700; color: #ffe2a0;
+  background: rgba(40,28,12,.5); border: 1px solid rgba(255,200,110,.35); border-radius: 10px; padding: 5px 12px;
+}
+
+/* ボス強調 */
+.enemy-badge { display: none; }
+.battle-enemy.is-boss .enemy-badge {
+  display: inline-block; font-size: 14px; font-weight: 900; letter-spacing: .15em;
+  color: #ffdf5a; text-shadow: 0 0 14px rgba(255,80,80,.9); margin-bottom: 4px;
+  animation: bossPulse 1s ease-in-out infinite alternate;
+}
+@keyframes bossPulse { from { transform: scale(1); opacity: .85; } to { transform: scale(1.12); opacity: 1; } }
+.battle-enemy.is-boss .enemy-sprite { filter: drop-shadow(0 0 26px rgba(255,60,60,.85)); }
+.battle-enemy.is-boss .enemy-name { color: #ff6a6a; font-size: 19px; }
+.battle-enemy.is-boss .enemy-hpbar { width: 230px; border-color: rgba(255,90,90,.7); }
+.battle-enemy.is-boss #enemy-hp-fill { background: linear-gradient(90deg, #f0f, #f66 50%, #fb4); }
 
 .party-area { display: flex; justify-content: space-around; padding: 10px 8px; gap: 6px; }
 .party-member {

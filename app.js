@@ -201,7 +201,7 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const center = Math.ceil(stage / 2);
   const rMin = Math.max(1, center - 1);
   const rMax = Math.min(10, center + 1);
-  ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], gimmick: gim, boss };
+  ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss };
   STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], boss, stage });
 });
 
@@ -1236,9 +1236,16 @@ function startBattle(star) {
     return { ...a, curHp: maxHp, maxHp, dead: false };
   });
 
-  // 敵描画
+  // 敵描画＋系統・ギミック・ボス表示
   document.getElementById("enemy-name").textContent = def.name;
   document.getElementById("enemy-sprite").innerHTML = faceHTML(def.face, `enemies/${def.img}`);
+  const catEl = document.getElementById("enemy-cat");
+  catEl.textContent = def.cat;
+  catEl.className = "enemy-cat cat-" + (def.catKey || "");
+  document.getElementById("enemy-gimmick").textContent = `⚠ ${def.gimmick}`;
+  const badge = document.getElementById("enemy-badge");
+  badge.textContent = def.boss ? "★ B O S S ★" : "";
+  document.getElementById("battle-enemy").classList.toggle("is-boss", !!def.boss);
   setEnemyHpBar();
 
   renderParty();
@@ -1287,7 +1294,7 @@ function setEnemyHpBar() {
   const hp = Math.max(0, BT.enemyHp);
   document.getElementById("enemy-hp-fill").style.width = `${hp / BT.enemy.hp * 100}%`;
   const txt = document.getElementById("enemy-hp-text");
-  if (txt) txt.textContent = `${hp} / ${BT.enemy.hp}`;
+  if (txt) txt.textContent = `HP ${hp} / ${BT.enemy.hp}`;
 }
 
 document.getElementById("battle-commands").addEventListener("click", (e) => {
