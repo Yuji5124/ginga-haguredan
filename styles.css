@@ -507,6 +507,7 @@ html, body {
 @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
 .scout-msg { font-size: 18px; margin-top: 12px; font-weight: 700; }
 .scout-sub { font-size: 13px; color: #9ab; margin-top: 8px; }
+.scout-replace-note { color: var(--gold); font-weight: 700; }
 .scout-voice {
   font-size: 16px; font-weight: 700; margin-top: 14px;
   padding: 8px 14px; border-radius: 12px; display: inline-block;

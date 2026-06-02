@@ -520,10 +520,15 @@ document.querySelector("#screen-preflight").addEventListener("click", (e) => {
 // -------------------------------------------------------------
 // Three.js 宇宙シューティング（最小版）
 // -------------------------------------------------------------
-const STAGE_TIME = 30; // シューティング1ステージの秒数
+const STAGE_TIME = 24; // シューティング1ステージの秒数
 
 const MAX_HP = 3;
 const SHIP_R = 0.48; // 飛行船の当たり判定半径（小さめの丸い船体に合わせる）
+const ARRIVAL_STEP_MS = 850;
+const BATTLE_HIT_WAIT_MS = 200;
+const BATTLE_TURN_WAIT_MS = 260;
+const VICTORY_TO_SCOUT_MS = 550;
+const WIPE_RETURN_MS = 1100;
 
 const SH = {
   renderer: null, scene: null, camera: null, raf: null,
@@ -1199,7 +1204,7 @@ function playArrival(star) {
     el.textContent = msgs[i];
     el.classList.remove("show"); void el.offsetWidth; el.classList.add("show"); // アニメ再生
     i++;
-    arrivalTimer = setTimeout(step, 1050);
+    arrivalTimer = setTimeout(step, ARRIVAL_STEP_MS);
   };
   step();
 }
@@ -1331,7 +1336,7 @@ async function attackRound(multiplier, label) {
     log(`${m.name}の ${label}！ ${dmg} のダメージ`);
     enemySprite().classList.add("hit");
     setEnemyHpBar();
-    await wait(240);
+    await wait(BATTLE_HIT_WAIT_MS);
     enemySprite().classList.remove("hit");
     if (BT.enemyHp <= 0) { return enemyDefeated(); }
   }
@@ -1347,7 +1352,7 @@ async function enemyTurn() {
   log(`${BT.enemy.name}の こうげき！ ${target.name}に ${dmg} のダメージ`);
   if (target.curHp <= 0) { target.dead = true; log(`${target.name}は たおれた…`); }
   renderParty();
-  await wait(320);
+  await wait(BATTLE_TURN_WAIT_MS);
   if (BT.party.every(m => m.dead)) return partyWipe();
   BT.turnLock = false; setCommands(true);
 }
@@ -1360,7 +1365,7 @@ async function doItem() {
   BT.party.forEach(m => { if (!m.dead) m.curHp = Math.min(m.maxHp, m.curHp + 20); });
   log("どうぐ「ほしのしずく」を つかった！ 全員20かいふく");
   renderParty();
-  await wait(320);
+  await wait(BATTLE_TURN_WAIT_MS);
   await enemyTurn();
 }
 
@@ -1372,7 +1377,7 @@ async function doRun() {
     show("worldmap");
   } else {
     log("にげられなかった！");
-    await wait(320);
+    await wait(BATTLE_TURN_WAIT_MS);
     await enemyTurn();
   }
 }
@@ -1385,12 +1390,12 @@ function enemyDefeated() {
   if (!save.cleared.includes(currentStar.id)) save.cleared.push(currentStar.id);
   persist();
   // 勝利後はスカウトチャンス画面へ
-  setTimeout(() => offerScout(), 700);
+  setTimeout(() => offerScout(), VICTORY_TO_SCOUT_MS);
 }
 
 function partyWipe() {
   log("パーティは ぜんめつした…");
-  setTimeout(() => { toast("ぜんめつ… 拠点にもどる"); show("worldmap"); }, 1400);
+  setTimeout(() => { toast("ぜんめつ… 拠点にもどる"); show("worldmap"); }, WIPE_RETURN_MS);
 }
 
 // -------------------------------------------------------------
@@ -1438,6 +1443,7 @@ function showScoutOffer(ally) {
   document.getElementById("scout-title").textContent = "仲間候補があらわれた！";
   const { cost, rate, boosted } = scoutInfo(ally);
   const enough = save.crystals >= cost;
+  const replaceTarget = !save.party.includes(ally.id) && save.party.length >= 4 ? allyById(save.party[save.party.length - 1]) : null;
   document.getElementById("scout-result").innerHTML = `
     <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
     <div class="cand-name">${ally.name}</div>
@@ -1449,6 +1455,7 @@ function showScoutOffer(ally) {
       <div class="cand-stat"><div class="k">所持💎</div><div class="v">${save.crystals}</div></div>
     </div>
     ${enough ? "" : `<div class="scout-sub" style="color:var(--danger)">クリスタルが足りない…</div>`}
+    ${replaceTarget ? `<div class="scout-sub scout-replace-note">成功時は4人目の ${replaceTarget.name} と入れ替え</div>` : ""}
   `;
   document.getElementById("scout-actions").innerHTML = `
     <button class="btn btn-primary" data-action="scout-do" ${enough ? "" : "disabled"}>スカウトする（💎${cost}）</button>
@@ -1464,8 +1471,8 @@ function attemptScout() {
   if (save.crystals < cost) return; // 念のため
   if (Math.random() < rate) {
     save.crystals -= cost;          // 成功時のみ消費
-    recruit(ally);                  // パーティ加入＋「加入済み」記録
-    showScoutResult(ally, "success", cost);
+    const recruitResult = recruit(ally); // パーティ加入＋「加入済み」記録
+    showScoutResult(ally, "success", cost, recruitResult);
   } else {
     // 失敗：仲間にならない／消費なし（MVP）／図鑑は発見済みのまま
     showScoutResult(ally, "fail");
@@ -1475,23 +1482,37 @@ function attemptScout() {
 
 // パーティ加入（4人を超える場合は末尾と入れ替え）
 function recruit(ally) {
+  const result = { addedToParty: false, alreadyInParty: false, replaced: null };
   if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
   markDiscovered(ally.id);
-  if (save.party.includes(ally.id)) return;
-  if (save.party.length < 4) save.party.push(ally.id);
-  else save.party[save.party.length - 1] = ally.id; // 入れ替え
+  if (save.party.includes(ally.id)) {
+    result.alreadyInParty = true;
+    return result;
+  }
+  if (save.party.length < 4) {
+    save.party.push(ally.id);
+    result.addedToParty = true;
+  } else {
+    const replacedId = save.party[save.party.length - 1];
+    save.party[save.party.length - 1] = ally.id; // 入れ替え
+    result.addedToParty = true;
+    result.replaced = allyById(replacedId);
+  }
+  return result;
 }
 
-function showScoutResult(ally, kind, cost) {
+function showScoutResult(ally, kind, cost, recruitResult = {}) {
   document.getElementById("scout-title").textContent = "スカウト結果";
   const box = document.getElementById("scout-result");
   if (kind === "success") {
-    const joined = save.party.includes(ally.id);
+    const partyNote = recruitResult.replaced
+      ? `パーティ満員のため ${recruitResult.replaced.name} と入れ替え`
+      : (recruitResult.alreadyInParty ? "すでにパーティにいる" : "パーティに編成");
     box.innerHTML = `
       <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
       <div class="scout-voice ok">「${ally.voice.ok}」</div>
       <div class="scout-msg" style="color:var(--ok)">${ally.name} が なかまになった！</div>
-      <div class="scout-sub">💎${cost} 消費 ／ 図鑑に「加入」を記録${joined ? "" : "（パーティ入れ替え）"}</div>
+      <div class="scout-sub">💎${cost} 消費 ／ 図鑑に「加入」を記録 ／ ${partyNote}</div>
     `;
   } else {
     box.innerHTML = `
