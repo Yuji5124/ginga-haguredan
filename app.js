@@ -5,51 +5,208 @@ import * as THREE from "three";
 // データ定義
 // -------------------------------------------------------------
 
-// レア度ごとのスカウト設定（必要クリスタル / 基本成功率）
+// レア度ごとのスカウト設定（必要クリスタル / 基本成功率）。レア度1〜10
 const RARITY = {
-  2: { cost: 20, baseRate: 0.70 },
-  3: { cost: 35, baseRate: 0.55 },
-  4: { cost: 60, baseRate: 0.40 },
-  5: { cost: 90, baseRate: 0.30 },
+  1:  { cost: 10,  baseRate: 0.85 },
+  2:  { cost: 20,  baseRate: 0.75 },
+  3:  { cost: 35,  baseRate: 0.65 },
+  4:  { cost: 55,  baseRate: 0.55 },
+  5:  { cost: 80,  baseRate: 0.48 },
+  6:  { cost: 110, baseRate: 0.42 },
+  7:  { cost: 150, baseRate: 0.36 },
+  8:  { cost: 200, baseRate: 0.30 },
+  9:  { cost: 280, baseRate: 0.24 },
+  10: { cost: 400, baseRate: 0.18 },
 };
 
-// 仲間候補（戦闘勝利後にスカウト / 図鑑に登録）
-// navBonus … 航行（シューティング）パートへの効果。voice … スカウト時の一言
-const ALLIES = [
-  { id: "robo",   name: "ロボ太",     face: "🤖", hp: 40, atk: 12, img: "robo",   rarity: 2, tag: "メカ族",
-    navBonus: { type: "fireRate",    label: "射撃速度アップ" },
-    voice: { ok: "いっしょに行こうぜ！", ng: "まだ準備不足かな…", bye: "またな、相棒！" } },
-  { id: "neko",   name: "ねこ船長",   face: "🐱", hp: 32, atk: 14, img: "neko",   rarity: 2, tag: "ねこ族",
-    navBonus: { type: "crystalUp",   label: "クリスタル獲得 +10%" },
-    voice: { ok: "乗せてってやるにゃ！", ng: "気が向かないにゃ", bye: "またどこかで会おうにゃ" } },
-  { id: "alien",  name: "ミドリ星人", face: "👽", hp: 30, atk: 13, img: "alien",  rarity: 3, tag: "宇宙人",
-    navBonus: { type: "missionBoost", label: "ミッション報酬 強化" },
-    voice: { ok: "ワレ、ナカマニ ナル！", ng: "マダ、ハヤイ…", bye: "マタ ドコカデ" } },
-  { id: "ghost",  name: "おばけ",     face: "👻", hp: 28, atk: 16, img: "ghost",  rarity: 3, tag: "ゆうれい",
-    navBonus: { type: "rockGuard",   label: "隕石ダメージ 低確率で無効" },
-    voice: { ok: "ひゅ〜、ついてくよ〜", ng: "いまは むり〜", bye: "ばいば〜い" } },
-  { id: "drago",  name: "コドラゴ",   face: "🐲", hp: 50, atk: 18, img: "drago",  rarity: 4, tag: "ドラゴン",
-    navBonus: { type: "killCrystal", label: "敵撃破で +1💎" },
-    voice: { ok: "燃えてきたぜ！", ng: "まだ認めねぇ！", bye: "また勝負だ！" } },
-  { id: "star",   name: "スターちゃん",face: "⭐", hp: 26, atk: 20, img: "star",   rarity: 5, tag: "スター",
-    navBonus: { type: "bigUp",       label: "大クリスタル +10" },
-    voice: { ok: "キラッ☆ いいよ！", ng: "うーん、まだかな", bye: "また会おうね☆" } },
-  { id: "octo",   name: "タコすけ",   face: "🐙", hp: 36, atk: 11, img: "octo",   rarity: 2, tag: "海洋生物",
-    navBonus: { type: "shield",      label: "開始時バリア ×1" },
-    voice: { ok: "8本うでで手伝うよ！", ng: "ちょっと無理かも", bye: "またね〜" } },
-  { id: "pengin", name: "ペンペン",   face: "🐧", hp: 34, atk: 12, img: "pengin", rarity: 2, tag: "鳥類",
-    navBonus: { type: "slow",        label: "隕石スピード -10%" },
-    voice: { ok: "ぺんっ！行く！", ng: "さむいから今度ね", bye: "ぺんぺん、またね" } },
+// 航行ボーナスの定義（8種）。レア度に応じて各仲間へ自動割当
+const NAV_DEFS = {
+  fireRate:     { type: "fireRate",     label: "射撃速度アップ" },
+  crystalUp:    { type: "crystalUp",    label: "クリスタル獲得 +10%" },
+  rockGuard:    { type: "rockGuard",    label: "隕石ダメージ 低確率で無効" },
+  killCrystal:  { type: "killCrystal",  label: "敵撃破で +1💎" },
+  bigUp:        { type: "bigUp",        label: "大クリスタル +10" },
+  shield:       { type: "shield",       label: "開始時バリア ×1" },
+  slow:         { type: "slow",         label: "隕石スピード -10%" },
+  missionBoost: { type: "missionBoost", label: "ミッション報酬 強化" },
+};
+const NAV_ORDER = ["fireRate", "crystalUp", "rockGuard", "killCrystal", "bigUp", "shield", "slow", "missionBoost"];
+
+// スカウト時のボイス（レア度帯で口調を変える簡易版）
+function voiceForRarity(r) {
+  if (r <= 3) return { ok: "いっしょに行ってもいいよ！", ng: "ごめん、まだ行けない…", bye: "またどこかで会おう" };
+  if (r <= 6) return { ok: "よし、仲間になろう！",       ng: "今回は見送るよ",         bye: "縁があったら また頼む" };
+  if (r <= 8) return { ok: "面白い、ついて行こう",       ng: "まだ その時じゃない",     bye: "次に会う時を楽しみにな" };
+  return       { ok: "我が力、貸し与えよう",           ng: "汝には まだ早い",         bye: "星々の彼方で 再び会おう" };
+}
+
+// 仲間100人（作り直し版）。[No, 名前, 絵文字, 見た目・設定, 得意なこと]
+// レア度は No から自動（1〜10：各10人）。HP/攻撃・航行ボーナス・ボイスも自動算出
+const RAW_ALLIES = [
+  [1,"まいごロボ・ピノ","🤖","古い案内ロボ。道をよく間違える","たまに宝箱の場所を当てる"],
+  [2,"ほしクズくん","✨","星のかけらみたいな小さい生物","敵に小ダメージ＋まれに目くらまし"],
+  [3,"宇宙バイトのミナ","🧑","銀河コンビニで働いていた少女","アイテム使用効果アップ"],
+  [4,"ねむりネジ","🔩","すぐ電源が落ちる小型ロボ","眠っている間だけ防御力アップ"],
+  [5,"プカプカさん","👨‍🚀","宇宙服だけが漂っている謎の人","攻撃をたまに避ける"],
+  [6,"チリトリ星人","👽","掃除好きの小さい宇宙人","状態異常を少し回復"],
+  [7,"ヨワシ","🐟","弱そうな宇宙魚","HPが少ない時だけ回避率アップ"],
+  [8,"ボタン係ポチ","🔘","ボタンを押すためだけのロボ","ランダムで何かが起きる"],
+  [9,"ひびわれ卵モン","🥚","割れかけの卵型モンスター","低確率で大きく跳ねて攻撃"],
+  [10,"カサネコ","🐈","傘を持った宇宙猫","雨・水系ステージで少し強い"],
+  [11,"レシート博士","🧾","何でもレシートに記録する老人","戦闘後にもらえるお金が少し増える"],
+  [12,"ころがり丸","⚙️","丸いメカ生物","体当たり。自分も少しダメージ"],
+  [13,"宇宙郵便ペリカン","🕊️","星から星へ手紙を届ける鳥","控え仲間に経験値を少し渡す"],
+  [14,"さびた騎士ドン","🛡️","鎧がサビた元騎士","味方をかばう"],
+  [15,"プチコック","👨‍🍳","銀河食堂の見習い料理人","戦闘中に小回復料理を作る"],
+  [16,"わすれんぼAI","💭","記憶容量が少ないAI","敵の技を1つだけ覚えることがある"],
+  [17,"パタパタ電池","🔋","羽の生えた乾電池","味方1人のスキル回数を少し回復"],
+  [18,"すなぼこり兄弟","🏜️","砂でできた双子","敵の命中率を下げる"],
+  [19,"ガムテープマン","🩹","壊れたものを何でも貼る人","ロボ系の仲間を少し回復"],
+  [20,"ミニアンテナ","📡","小さな通信生物","敵の次の行動をたまに予測"],
+  [21,"はぐれ整備士ニコ","🔧","どの船にも乗せてもらえなかった整備士","飛行系・ロボ系を強化"],
+  [22,"ドリル小僧ガリ","⛏️","頭にドリルがある少年","防御の高い敵に強い"],
+  [23,"月面うさぎモチ","🐇","月で餅をついていた宇宙うさぎ","敵をスタンさせる"],
+  [24,"ピクセル魔女ドット","👾","体がドット絵みたいな魔女","敵の能力を少しバグらせる"],
+  [25,"スモーク忍者ケムリ","🥷","いつも煙に包まれている忍者","回避支援"],
+  [26,"ジャンク犬ラフ","🐕","部品をくわえて走るメカ犬","戦闘後に素材を拾う"],
+  [27,"フライパン王子","🍳","フライパンを武器にする王子","反撃が得意"],
+  [28,"星くずアイドル・リリ","🎤","人気はないが一生懸命なアイドル","味方のやる気を上げる"],
+  [29,"タイヤ星人クル","🛞","タイヤ型の宇宙人","素早さが高い"],
+  [30,"ザコ将軍","🎖️","自分を強いと思っている弱い将軍","敵の注意を引きつける"],
+  [31,"ブリキ船長","🚢","小さなブリキ宇宙船の船長","味方全体の防御アップ"],
+  [32,"メテオ配達員ジン","☄️","隕石便を届ける配達員","先制攻撃しやすい"],
+  [33,"からくり姫ネネ","👸","古い宮殿から逃げた機械姫","自動回復"],
+  [34,"バブル医師ポワ","🫧","泡の中に住む医者","回復＋毒治療"],
+  [35,"黒ねじのガンマ","🌑","黒いネジ型ロボ","単体火力が高い"],
+  [36,"コイン占い師ルゥ","🪙","コインで未来を決める占い師","クリティカル率を操作"],
+  [37,"グラタン星人","🍲","熱々の皿に乗った宇宙人","火属性攻撃"],
+  [38,"フードの少年シロ","🧥","顔を隠した無口な少年","敵の強化を消す"],
+  [39,"ぷち重力くん","🌀","小さなブラックホールの子ども","敵の素早さを下げる"],
+  [40,"ネオンスケーター","🛹","宇宙道路を滑る少年","回避と連続攻撃"],
+  [41,"ラジオ侍ゼンパ","📻","電波を刀にする侍","雷属性攻撃"],
+  [42,"きつね技師コン","🦊","変装が得意な宇宙きつね","敵をだます"],
+  [43,"アイス配達娘ユキ","🧊","冷凍惑星から来た配達員","氷属性＋速度低下"],
+  [44,"片目のロボ兵ボイド","👁️","片目だけ光る旧型兵士","高命中射撃"],
+  [45,"オルゴール少女ミミ","🎶","胸にオルゴールがある少女","味方全体を少し回復"],
+  [46,"カミナリ太鼓ドン","🥁","雷太鼓を背負った大男","全体雷攻撃"],
+  [47,"シール魔法使いペタ","🏷️","魔法をシールにして貼る","味方に一時強化"],
+  [48,"宇宙漁師ハル","🎣","星雲で魚を釣る漁師","レア素材入手率アップ"],
+  [49,"ボロマントのカイ","🗡️","破れたマントの剣士","HPが低いほど強い"],
+  [50,"トランク博士","💼","トランクの中に研究所がある博士","ランダム発明品を使う"],
+  [51,"スター消防士レン","🧯","星の火事を消す消防士","火属性ダメージを軽減"],
+  [52,"ホログラム姉妹","👯","実体があるようでない双子","分身で攻撃回避"],
+  [53,"銀河薬売りモンド","🧪","あやしい薬を売る旅人","強回復だが副作用あり"],
+  [54,"コスモ大工ゲン","🔨","宇宙船を直す大工","防御バリアを作る"],
+  [55,"ロケット僧サン","🧘","背中にロケットを背負った僧","回復＋素早さアップ"],
+  [56,"ゼリー騎士プルン","🍮","ぷるぷるの鎧騎士","物理攻撃に強い"],
+  [57,"ビーム書道家スミ","🖌️","光で文字を書く書道家","敵全体に封印効果"],
+  [58,"パラボラ少女エコ","🛰️","大きなアンテナを持つ少女","敵のスキルを反射することがある"],
+  [59,"砂時計ロボ・チク","⏳","時間管理ロボ","ターン順を少し操作"],
+  [60,"スターモグラ隊長","🦡","星の地下を掘る隊長","防御無視攻撃"],
+  [61,"赤マフラーのルカ","🧣","宇宙を歩いて渡る少年","高回避・高火力"],
+  [62,"鉄塔ロボ・タワン","🗼","鉄塔みたいに巨大なロボ","味方全体を守る"],
+  [63,"彗星ピエロ・ラフ","🤡","笑いながら隕石に乗る道化師","ランダム超効果"],
+  [64,"星雲剣士ラグナ","⚔️","星雲から来た剣士","全体斬撃"],
+  [65,"ダークナース・ノア","💉","闇医者のような看護師","回復と呪いを両方使う"],
+  [66,"宇宙怪盗セブン","🎭","7つの星を盗んだ怪盗","レアアイテムを盗む"],
+  [67,"白い獣人ミロク","🐺","月光を浴びる獣人","連続攻撃"],
+  [68,"コアメイカー・リタ","⚛️","星の核を作る技師","味方の攻撃力を大きく上げる"],
+  [69,"逆さ博士","🙃","逆さまに浮く研究者","敵味方の能力変化を反転"],
+  [70,"ガラス竜リュカ","🐲","透明な体の小型竜","魔法攻撃に強い"],
+  [71,"旧銀河軍のアイン","🪖","かつて軍にいた脱走兵","指揮能力が高い"],
+  [72,"星を読む少女ノルン","🔮","未来の断片を見る少女","次ターンの結果を変える"],
+  [73,"宇宙墓守グレイ","🪦","滅んだ星の墓を守る存在","倒れた仲間の力を引き継ぐ"],
+  [74,"機械天使メル","👼","羽のあるロボット","全体回復＋防御"],
+  [75,"青炎のオルカ","🔥","青い炎をまとった戦士","火と水の複合攻撃"],
+  [76,"記録者ログ","📚","銀河の記憶を集める存在","戦闘データで強くなる"],
+  [77,"双子衛星ルル・ララ","🌗","2つの小さな衛星生命体","2回行動支援"],
+  [78,"黒箱の少年ノイズ","📦","記憶を失ったAI少年","敵の行動をコピー"],
+  [79,"星海の巫女セナ","🌌","星の海と会話できる巫女","全体補助が強い"],
+  [80,"銀河裁縫師イト","🧵","星の糸で服を縫う職人","防具強化・バリア"],
+  [81,"はぐれ剣王ギル","🤺","王になれなかった剣士","単体最強級の剣技"],
+  [82,"星喰いベビー","👶","星を食べる怪獣の赤ちゃん","戦闘が長いほど強くなる"],
+  [83,"クロック・ゼロ","🕰️","壊れた時間兵器","敵の行動を1回遅らせる"],
+  [84,"銀河魔女ステラ","🧙‍♀️","銀河の外から来た魔女","全体魔法が強い"],
+  [85,"太陽炉ゴウマ","☀️","胸に小さな太陽炉がある巨人","HPを削って大火力"],
+  [86,"アンドロイド・イヴァ","🦾","感情を学ぶ戦闘AI","敵の行動を学習して反撃"],
+  [87,"黒星騎士バル","🖤","黒い星の鎧を着た騎士","防御と反撃が強い"],
+  [88,"ミラクル商人ポル","🎩","奇跡を売る商人","低確率で戦況をひっくり返す"],
+  [89,"白銀竜コメット","🐉","彗星から生まれた竜","高火力・高素早さ"],
+  [90,"星屑賢者モル","🧙","星屑を集める小さな賢者","回復・攻撃・補助を万能に使う"],
+  [91,"はぐれ王ギン","👑","王冠だけ立派な小さい王様","味方が倒れるほど強くなる"],
+  [92,"ノヴァちゃん","💥","小さな超新星の子","一度だけ超火力爆発"],
+  [93,"アステラ","🌟","星の守護者","味方全体を復活させる"],
+  [94,"ブラックホールくん","🕳️","黒い丸顔の重力生物","敵全体を吸い込む"],
+  [95,"プロト・ワン","🤖","最初に作られたロボ","ロボ系仲間を大幅強化"],
+  [96,"エーテル姫","🧚","宇宙の気流に乗る姫","毎ターン全体回復"],
+  [97,"バグの神様グリッチ","🪲","世界のルールから外れた存在","敵の行動を無効化することがある"],
+  [98,"ラストコメット","💫","最後の彗星生命体","1戦に1回だけ超必殺"],
+  [99,"迷子の創造主コドモ","🧒","銀河を作ったかもしれない子ども","ランダムで奇跡を起こす"],
+  [100,"はぐれ飛行船オルカ号","🚀","4人乗れる小型飛行船。意思を持つ仲間","全体の回避・移動・支援。終盤で覚醒する"],
 ];
 
-// 星（ステージ）。candidates = その星で出会える仲間候補
-const STARS = [
-  { id: "s1", name: "アオイ星",   icon: "🌍", desc: "はじまりの青い星",   enemy: "slime",  reward: 30,  candidates: ["neko", "ghost"] },
-  { id: "s2", name: "サバク星",   icon: "🪐", desc: "砂嵐ふきあれる星",   enemy: "bug",    reward: 45,  candidates: ["alien", "octo"] },
-  { id: "s3", name: "コオリ星",   icon: "❄️", desc: "こおりにとざされた星", enemy: "yeti",   reward: 60,  candidates: ["pengin"] },
-  { id: "s4", name: "ヒノ星",     icon: "🔥", desc: "マグマもえさかる星", enemy: "demon",  reward: 80,  candidates: ["drago"] },
-  { id: "s5", name: "ハグレ星雲", icon: "🌌", desc: "謎につつまれた最果て", enemy: "boss",   reward: 120, candidates: ["star"] },
+// RAW から実データへ展開（レア度・ステータス・航行効果・ボイスを自動算出）
+const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
+  const rarity = Math.floor((no - 1) / 10) + 1;
+  const id = "c" + no;
+  return {
+    id, name, face, img: id, rarity, setting, skill,
+    tag: skill,                         // スカウト画面のタグ欄に「得意なこと」を表示
+    hp: 30 + rarity * 14,               // レア度でHP自動算出
+    atk: 8 + rarity * 4,                // レア度で攻撃力自動算出
+    navBonus: NAV_DEFS[NAV_ORDER[(no - 1) % NAV_ORDER.length]],
+    voice: voiceForRarity(rarity),
+  };
+});
+
+const STARTER_ID = "c1"; // 初期メンバー（まいごロボ・ピノ）
+
+// 敵の系統ラベル
+const ENEM_CAT = { bio: "宇宙生物系", robo: "ロボ・AI系", villain: "悪人系", concept: "概念系" };
+
+// 20ステージ：[stage, 星名, 星アイコン, 敵名, 敵絵文字, 系統, ギミック(説明)]
+// 敵HP/攻撃・報酬・スカウト出現レア度帯は stage から自動算出
+const RAW_STAGES = [
+  [1, "宇宙のゴミ捨て場",       "🛰️", "宇宙ゴミあらし",             "🗑️", "robo",    "弱い。基本操作を覚える敵"],
+  [2, "銀河検問ゲート",         "🚧", "カチカチ検問ロボ",           "🤖", "robo",    "防御が少し高い"],
+  [3, "星くず街道",             "🌠", "スターどろぼう",             "🥷", "villain", "素早い。たまにアイテムを奪う"],
+  [4, "商人の停泊地",           "🪐", "ひとりじめ商人ガメル",       "🤑", "villain", "お金を奪う攻撃"],
+  [5, "スクラップ工場",         "⚙️", "ねじまき番長",               "🪛", "robo",    "攻撃力が高いが命中が低い"],
+  [6, "流星の谷",               "☄️", "流星オオカミ",               "🐺", "bio",     "HPが減ると攻撃力アップ"],
+  [7, "迷子の宙域",             "🌫️", "迷子狩りドローン",           "🛸", "robo",    "仲間1人を一時 行動不能にする"],
+  [8, "ロボ管理区",             "🏭", "ブラック企業ロボ部長",       "👔", "robo",    "毎ターン スキル回数を削る"],
+  [9, "サーカス衛星",           "🎪", "星くずサーカス団長",         "🎩", "villain", "ランダムな状態異常"],
+  [10,"海賊の巣",               "🏴‍☠️","宇宙海賊キャプテン・ザバ",  "⚓", "villain", "高火力。仲間の支援が重要"],
+  [11,"廃兵器の墓場",           "🪦", "サビつき巨兵ゴルドン",       "🗿", "robo",    "防御が非常に高い"],
+  [12,"鏡張りの星",             "🪞", "偽りの勇者ミラー",           "🪞", "villain", "こちらの強化をコピーする"],
+  [13,"運命管理塔",             "🎲", "運命管理AI ラックレス",      "🎯", "robo",    "クリティカルや回避を封じる"],
+  [14,"喰われた小星団",         "🌑", "星喰い幼獣グラトン",         "🦖", "bio",     "毎ターン 少しずつ強くなる"],
+  [15,"銀河法廷",               "⚖️", "銀河裁判官ジャッジム",       "👨‍⚖️","concept", "弱い仲間を狙ってくる"],
+  [16,"記憶の渦",               "🌀", "記憶ぬすみノイズ",           "🕸️", "concept", "スキルを一時封印する"],
+  [17,"無重力宮",               "🌌", "無重力の王グラビス",         "🪐", "concept", "素早さを大きく下げる"],
+  [18,"回収機関ステーション",   "📡", "銀河回収機関の艦長レイド",   "🎖️", "villain", "仲間を1人ずつ弱体化"],
+  [19,"人工勇者の城",           "🏰", "完成された勇者オルデン",     "🦸", "robo",    "全能力が高い。弱点が少ない"],
+  [20,"運命固定装置・最深部",   "⚙️", "運命固定装置ラストギア",     "🕰️", "concept", "フェーズ制。最後のボス"],
 ];
+
+// RAW_STAGES から STARS（ステージ）と ENEMIES（敵）を生成
+const STARS = [];
+const ENEMIES = {};
+RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
+  const id = "s" + stage, eid = "e" + stage;
+  const boss = stage === 20;
+  const hp = Math.round((22 + stage * 14) * (boss ? 1.7 : 1));
+  const atk = Math.round((5 + stage * 1.8) * (boss ? 1.4 : 1));
+  const reward = boss ? 300 : 20 + stage * 10;
+  const center = Math.ceil(stage / 2);
+  const rMin = Math.max(1, center - 1);
+  const rMax = Math.min(10, center + 1);
+  ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], gimmick: gim, boss };
+  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], boss, stage });
+});
+
+// ラスボスの登場セリフ
+const BOSS_QUOTE = "お前たちのような、弱く、未完成で、偶然集まった者たちに、銀河を変える資格はない";
 
 const allyById = (id) => ALLIES.find(a => a.id === id);
 
@@ -91,14 +248,7 @@ function computeNavEffects(partyIds) {
   return e;
 }
 
-// 敵（戦闘）
-const ENEMIES = {
-  slime: { name: "うちゅうスライム", face: "🟣", hp: 30,  atk: 6,  img: "slime" },
-  bug:   { name: "メカバグ",         face: "🐛", hp: 45,  atk: 9,  img: "bug" },
-  yeti:  { name: "ユキオトコ",       face: "🦣", hp: 60,  atk: 12, img: "yeti" },
-  demon: { name: "ヒノデビル",       face: "😈", hp: 80,  atk: 16, img: "demon" },
-  boss:  { name: "はぐれ王",         face: "👹", hp: 140, atk: 22, img: "boss" },
-};
+// （敵データ ENEMIES は上の RAW_STAGES から自動生成）
 
 // -------------------------------------------------------------
 // セーブデータ（localStorage）
@@ -107,10 +257,10 @@ const SAVE_KEY = "ginga-haguredan-save-v1";
 
 const defaultSave = () => ({
   crystals: 0,
-  cleared: [],            // クリア済み星ID
-  party: ["robo"],        // 初期メンバー
-  discovered: ["robo"],   // 図鑑：発見済み（出会った）仲間ID
-  recruited: ["robo"],    // 図鑑：加入済み（スカウト成功）仲間ID
+  cleared: [],                  // クリア済み星ID
+  party: [STARTER_ID],          // 初期メンバー
+  discovered: [STARTER_ID],     // 図鑑：発見済み（出会った）仲間ID
+  recruited: [STARTER_ID],      // 図鑑：加入済み（スカウト成功）仲間ID
 });
 
 let save = loadSave();
@@ -126,6 +276,14 @@ function loadSave() {
         data.recruited = Array.from(new Set([...(data.recruited || []), ...data.party]));
         delete data.dex;
       }
+      // 100人ロスター化に伴う移行：存在しない仲間IDを除去し、初期メンバーを保証
+      const valid = new Set(ALLIES.map(a => a.id));
+      data.party = (data.party || []).filter(id => valid.has(id));
+      data.discovered = (data.discovered || []).filter(id => valid.has(id));
+      data.recruited = (data.recruited || []).filter(id => valid.has(id));
+      if (data.party.length === 0) data.party = [STARTER_ID];
+      if (!data.discovered.includes(STARTER_ID)) data.discovered.push(STARTER_ID);
+      if (!data.recruited.includes(STARTER_ID)) data.recruited.push(STARTER_ID);
       return data;
     }
   } catch (e) { console.warn("save load failed", e); }
@@ -225,8 +383,9 @@ function renderPartyScreen() {
       <div class="party-row">
         <div class="pr-face">${faceHTML(a.face, `characters/${a.img}`)}</div>
         <div class="pr-info">
-          <div class="pr-name">${a.name} <span class="rarity">${"★".repeat(a.rarity)}</span></div>
-          <div class="pr-sub">${a.tag} ／ HP${a.hp} こうげき${a.atk}</div>
+          <div class="pr-name">${a.name} <span class="rarity">★${a.rarity}</span></div>
+          <div class="pr-sub">${a.setting}</div>
+          <div class="pr-sub">HP${a.hp} ／ こうげき${a.atk} ／ 得意：${a.skill}</div>
           <div class="pr-nav">航行：${a.navBonus.label}</div>
         </div>
       </div>`;
@@ -319,8 +478,8 @@ function renderStarList() {
     card.innerHTML = `
       <div class="star-icon">${star.icon}</div>
       <div class="star-info">
-        <div class="star-name">${star.name}</div>
-        <div class="star-desc">${star.desc}</div>
+        <div class="star-name">${star.boss ? "👑 " : ""}${star.stage}. ${star.name}</div>
+        <div class="star-desc"><span class="star-cat">${star.cat}</span> ${star.desc}</div>
       </div>
       ${cleared ? '<span class="star-badge">クリア済</span>' : `<span class="star-badge" style="background:rgba(110,200,255,.18);color:var(--accent)">💎${star.reward}</span>`}
     `;
@@ -879,7 +1038,9 @@ function startBattle(star) {
 
   renderParty();
   clearLog();
-  log(`${def.name} が あらわれた！`);
+  log(`${def.boss ? "【ボス】" : ""}${def.name} が あらわれた！`);
+  if (def.boss) log(`「${BOSS_QUOTE}」`);
+  log(`〔${def.cat}〕${def.gimmick}`); // 系統とギミックを提示
   // ボーナス反映の告知
   if (stageBonus && ["enemyHp", "allyHp", "scoutRate"].includes(stageBonus.type)) {
     log(`✦ 航行ボーナス：${stageBonus.label}${stageBonus.boosted ? "（強化）" : ""}`);
@@ -1026,9 +1187,9 @@ function partyWipe() {
 let dexReturn = "worldmap";
 let scoutCandidate = null;
 
-// その星の候補から1体（未加入を優先）
+// その星のレア度帯から候補を1体（未加入を優先）
 function pickCandidate() {
-  const pool = (currentStar.candidates || []).map(allyById).filter(Boolean);
+  const pool = ALLIES.filter(a => a.rarity >= currentStar.rMin && a.rarity <= currentStar.rMax);
   if (pool.length === 0) return null;
   const fresh = pool.filter(a => !save.recruited.includes(a.id));
   const choose = fresh.length ? fresh : pool;
@@ -1177,10 +1338,12 @@ function renderDex() {
       : `<div class="dc-badge found">発見済み</div>`;
     cell.innerHTML = `
       <div class="dc-face">${found ? faceHTML(a.face, `characters/${a.img}`) : "❔"}</div>
+      <div class="dc-rarity">★${a.rarity}</div>
       <div class="dc-name">${found ? a.name : "？？？"}</div>
       <div class="dc-no">No.${String(i + 1).padStart(2, "0")}</div>
       ${badge}
     `;
+    if (found) cell.title = `${a.name}（★${a.rarity}）\n${a.setting}\n得意：${a.skill}`;
     grid.appendChild(cell);
   });
 }
