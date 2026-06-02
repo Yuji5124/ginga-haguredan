@@ -1,5 +1,150 @@
 // ===== 銀河はぐれ団 / メインロジック =====
-import * as THREE from "three";
+let THREE = createThreeFallback();
+let threeMode = "canvas-fallback";
+
+import("https://unpkg.com/three@0.160.0/build/three.module.js")
+  .then(mod => {
+    THREE = mod;
+    threeMode = "webgl";
+  })
+  .catch(err => {
+    console.warn("Three.js CDN load failed. Using canvas fallback.", err);
+  });
+
+function createThreeFallback() {
+  class Vec3 {
+    constructor(x = 0, y = 0, z = 0) { this.set(x, y, z); }
+    set(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; return this; }
+    copy(v) { return this.set(v.x, v.y, v.z); }
+    distanceTo(v) {
+      const dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z;
+      return Math.hypot(dx, dy, dz);
+    }
+    setScalar(v) { return this.set(v, v, v); }
+  }
+  class Obj3D {
+    constructor() {
+      this.position = new Vec3();
+      this.rotation = new Vec3();
+      this.scale = new Vec3(1, 1, 1);
+      this.children = [];
+      this.userData = {};
+      this.visible = true;
+    }
+    add(o) { this.children.push(o); return this; }
+  }
+  class Scene extends Obj3D {
+    constructor() { super(); this.userData = {}; }
+    remove(o) {
+      this.children = this.children.filter(child => child !== o);
+      return this;
+    }
+  }
+  class Group extends Obj3D {}
+  class Mesh extends Obj3D {
+    constructor(geometry, material = {}) { super(); this.geometry = geometry; this.material = material; }
+  }
+  class Points extends Mesh {}
+  class Geometry {
+    constructor(kind = "geometry", radius = 0.5) { this.kind = kind; this.radius = radius; this.attributes = {}; }
+    setAttribute(name, attr) { this.attributes[name] = attr; return this; }
+  }
+  class BufferAttribute { constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; } }
+  class Material { constructor(opts = {}) { Object.assign(this, opts); } }
+  const colorToCss = (color, fallback = "#bcd4ff") => {
+    if (typeof color === "number") return `#${color.toString(16).padStart(6, "0").slice(-6)}`;
+    return color || fallback;
+  };
+  const eachObject = (root, fn, parent = { x: 0, y: 0, z: 0 }) => {
+    if (!root || root.visible === false) return;
+    const world = {
+      x: parent.x + (root.position?.x || 0),
+      y: parent.y + (root.position?.y || 0),
+      z: parent.z + (root.position?.z || 0),
+    };
+    fn(root, world);
+    (root.children || []).forEach(child => eachObject(child, fn, world));
+  };
+  class WebGLRenderer {
+    constructor() {
+      this.domElement = document.createElement("canvas");
+      this.ctx = this.domElement.getContext("2d");
+    }
+    setPixelRatio() {}
+    setSize(w, h) {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      this.domElement.style.width = `${w}px`;
+      this.domElement.style.height = `${h}px`;
+      this.domElement.width = Math.max(1, Math.floor(w * ratio));
+      this.domElement.height = Math.max(1, Math.floor(h * ratio));
+      this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+    render(scene) {
+      const w = this.domElement.clientWidth || this.domElement.width;
+      const h = this.domElement.clientHeight || this.domElement.height;
+      const ctx = this.ctx;
+      ctx.clearRect(0, 0, w, h);
+      const grad = ctx.createRadialGradient(w * 0.5, h * 0.35, 10, w * 0.5, h * 0.5, h * 0.75);
+      grad.addColorStop(0, "#151a3c");
+      grad.addColorStop(1, "#05030f");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      eachObject(scene, (o, p) => {
+        if (o instanceof Points) {
+          const pos = o.geometry?.attributes?.position?.array || [];
+          ctx.fillStyle = colorToCss(o.material?.color, "#bcd4ff");
+          for (let i = 0; i < pos.length; i += 90) {
+            const x = (w * 0.5 + pos[i] * 2 + p.x * 8) % w;
+            const y = (h * 0.5 + pos[i + 1] * 2 + p.z * 0.8) % h;
+            ctx.globalAlpha = 0.7;
+            ctx.fillRect((x + w) % w, (y + h) % h, 1.5, 1.5);
+          }
+          ctx.globalAlpha = 1;
+          return;
+        }
+        const type = o.userData?.type;
+        const hasShape = o instanceof Mesh || type || (o instanceof Group && o.children.length);
+        if (!hasShape) return;
+        const sx = w * 0.5 + p.x * 28;
+        const sy = h * 0.54 - p.y * 28 + p.z * 0.42;
+        const baseR = o.userData?.r || o.geometry?.radius || (type ? 0.7 : 0.45);
+        const r = Math.max(2, baseR * (type === "bullet" ? 5 : 10));
+        const color = type === "rock" ? "#a48d72"
+          : type === "crystal" ? (o.userData.kind === "heal" ? "#66ff99" : "#c266ff")
+          : type === "enemy" ? "#ff5577"
+          : type === "bullet" ? "#66ccff"
+          : colorToCss(o.material?.color, "#66e0ff");
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = type ? 10 : 18;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+    }
+  }
+  class PerspectiveCamera extends Obj3D {
+    constructor(fov, aspect, near, far) { super(); Object.assign(this, { fov, aspect, near, far }); }
+    lookAt() {}
+    updateProjectionMatrix() {}
+  }
+  class Light extends Obj3D { constructor(color, intensity) { super(); this.color = color; this.intensity = intensity; } }
+  class FogExp2 { constructor(color, density) { this.color = color; this.density = density; } }
+  return {
+    WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry: Geometry, BufferAttribute,
+    PointsMaterial: Material, MeshStandardMaterial: Material, MeshBasicMaterial: Material,
+    Points, Mesh, Group, AmbientLight: Light, DirectionalLight: Light, FogExp2,
+    SphereGeometry: class extends Geometry { constructor(r = 0.5) { super("sphere", r); } },
+    CircleGeometry: class extends Geometry { constructor(r = 0.5) { super("circle", r); } },
+    ConeGeometry: class extends Geometry { constructor(r = 0.5) { super("cone", r); } },
+    CylinderGeometry: class extends Geometry { constructor(r = 0.5) { super("cylinder", r); } },
+    IcosahedronGeometry: class extends Geometry { constructor(r = 0.5) { super("icosahedron", r); } },
+    OctahedronGeometry: class extends Geometry { constructor(r = 0.5) { super("octahedron", r); } },
+    TorusGeometry: class extends Geometry { constructor(r = 0.5) { super("torus", r); } },
+    BoxGeometry: class extends Geometry { constructor(w = 0.5) { super("box", w); } },
+  };
+}
 
 // -------------------------------------------------------------
 // データ定義
