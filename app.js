@@ -291,18 +291,20 @@ const RAW_ALLIES = [
   [100,"はぐれ飛行船オルカ号","🚀","4人乗れる小型飛行船。意思を持つ仲間","全体の回避・移動・支援。終盤で覚醒する"],
 ];
 
-// 戦闘スキル定義（8種）。kind で効果を分岐
+// 戦闘スキル定義（8種）。kind で効果を分岐。element は弱点/耐性判定に使用（攻撃系のみ）
 const SKILLS = {
-  slash:  { name: "スラッシュ",   kind: "atk1",        power: 1.5, desc: "単体に強攻撃" },
-  burst:  { name: "バースト",     kind: "atkAll",      power: 0.85, desc: "敵全体に攻撃" },
+  slash:  { name: "スラッシュ",   kind: "atk1",        power: 1.5, element: "物理", desc: "単体に物理攻撃" },
+  burst:  { name: "バースト",     kind: "atkAll",      power: 0.85, element: "炎",  desc: "敵全体に炎攻撃" },
   heal:   { name: "ヒール",       kind: "heal",        power: 26,  desc: "味方1人を回復" },
   guard:  { name: "ガードアップ", kind: "defUp",       power: 8,   desc: "味方全体の防御UP" },
   weaken: { name: "ウィークン",   kind: "enemyAtkDown",power: 0.65, desc: "敵の攻撃力ダウン" },
-  crit:   { name: "クリティカル", kind: "crit",        power: 2.4, desc: "会心の一撃" },
+  crit:   { name: "クリティカル", kind: "crit",        power: 2.4, element: "光",  desc: "光の会心の一撃" },
   cheer:  { name: "エール",       kind: "buffNext",    power: 1.5, desc: "全体の次の攻撃強化" },
-  gamble: { name: "いちかばちか", kind: "bigRandom",   power: 4.0, desc: "低確率で大ダメージ" },
+  gamble: { name: "いちかばちか", kind: "bigRandom",   power: 4.0, element: "闇",  desc: "闇の低確率大ダメージ" },
 };
 const SKILL_KEYS = Object.keys(SKILLS);
+// 攻撃属性（弱点/耐性に使う）。たたかう=物理
+const ELEMENTS = ["物理", "炎", "氷", "電気", "光", "闇"];
 
 // パッシブ定義。戦闘開始時にステータスへ反映
 const PASSIVES = [
@@ -354,6 +356,12 @@ const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
   const id = "c" + no;
   const skillKey = SKILL_KEYS[(no - 1) % SKILL_KEYS.length];
   const tags = tagsForAlly(no, rarity, skillKey, name, face, setting, skill);
+  // 各キャラのスキルセット（シグネチャ＋レア度で増える）。重複は除去
+  const skillSet = [skillKey];
+  if (rarity >= 3) skillSet.push(SKILL_KEYS[no % SKILL_KEYS.length]);
+  if (rarity >= 6) skillSet.push(SKILL_KEYS[(no + 3) % SKILL_KEYS.length]);
+  if (rarity >= 9) skillSet.push(SKILL_KEYS[(no + 5) % SKILL_KEYS.length]);
+  const skills = Array.from(new Set(skillSet)).slice(0, 4);
   return {
     id, name, face, img: id, rarity, setting, skill,
     tag: tags.join(" / "),
@@ -364,6 +372,7 @@ const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
     spd: 8 + rarity * 2 + (no % 5),     // 素早さ
     level: 1 + Math.floor(rarity / 2),  // レベル（表示は控えめ）
     skillKey,
+    skills,                              // 戦闘で選べるスキル一覧
     bskill: SKILLS[skillKey],           // 戦闘スキル（シグネチャ）
     passive: PASSIVES[(no - 1) % PASSIVES.length],
     navBonus: NAV_DEFS[NAV_ORDER[(no - 1) % NAV_ORDER.length]],
@@ -449,7 +458,16 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const rMin = Math.max(1, center - 1);
   const rMax = Math.min(10, center + 1);
   const theme = stageTheme(stage);
-  ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss };
+  // 系統ごとの弱点・耐性（弱点は攻撃スキルで突けるもの＝物理/炎/光/闇 に限定）
+  const WR = {
+    robo:    { weak: "炎",   resist: "物理" },
+    villain: { weak: "光",   resist: "闇" },
+    bio:     { weak: "闇",   resist: "炎" },
+    concept: { weak: "物理", resist: "光" },
+  };
+  const wr = WR[cat] || { weak: "物理", resist: "氷" };
+  const elevel = Math.ceil(stage / 2); // 2ステージごとに敵Lv+1（表示は控えめ）
+  ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss, weak: wr.weak, resist: wr.resist, level: elevel };
   STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme, danger, recommend });
 });
 
@@ -461,7 +479,7 @@ const allyById = (id) => ALLIES.find(a => a.id === id);
 // 航行ミッション（開始時に1つ提示。成功で戦闘/スカウト用ボーナス）
 // bonus.type: enemyHp(-10%) / scoutRate(+5%) / crystal(+20) / allyHp(+1)
 const MISSIONS = [
-  { id: "c5",    type: "crystals", goal: 5,  desc: "クリスタルを5個 集めろ",      bonus: { type: "crystal",   label: "クリスタル +12" } },
+  { id: "c5",    type: "crystals", goal: 5,  desc: "クリスタルを5個 集めろ",      bonus: { type: "crystal",   label: "クリスタル +10" } },
   { id: "nohit", type: "nohit",    goal: 10, desc: "10秒間 ノーダメージで耐えろ", bonus: { type: "allyHp",    label: "味方HP +1" } },
   { id: "big1",  type: "big",      goal: 1,  desc: "大クリスタルを1個 拾え",      bonus: { type: "scoutRate", label: "スカウト成功率 +5%" } },
   { id: "e3",    type: "enemies",  goal: 3,  desc: "敵を3体 倒せ",                bonus: { type: "enemyHp",   label: "敵HP -10%" } },
@@ -1318,9 +1336,9 @@ const SH = {
 const INVULN_MS = 800; // 被弾後の無敵時間
 // クリスタル獲得量（経済バランスはここで一括調整）
 const CRYSTAL_NORMAL_MIN = 1;
-const CRYSTAL_NORMAL_MAX = 2;
-const CRYSTAL_BIG_MIN = 8;
-const CRYSTAL_BIG_MAX = 10;
+const CRYSTAL_NORMAL_MAX = 1;   // 通常クリスタルは +1（貴重な資源に）
+const CRYSTAL_BIG_MIN = 6;
+const CRYSTAL_BIG_MAX = 8;      // 大クリスタルは +6〜8
 
 const CHAIN_WINDOW = 2600; // チェイン継続時間(ms)
 const SPEECH_LINES = [
@@ -1723,15 +1741,15 @@ function updateShooting(dt, now) {
   // 自動弾＋タップ/SPACEの手動弾（ロボ太がいると発射間隔が短縮）
   if (now - SH.lastShot > 520 * SH.nav.fireRateMul) { fireBullet(); SH.lastShot = now; }
 
-  // スポーン（種類ごとに出現率を設定）
-  if (now - SH.lastSpawn > 650) {
+  // スポーン（種類ごとに出現率。クリスタルは貴重なので控えめ）
+  if (now - SH.lastSpawn > 680) {
     const r = Math.random();
-    if (r < 0.30)      spawnRock(false);   // 通常隕石
-    else if (r < 0.40) spawnRock(true);    // 赤い隕石（低確率）
-    else if (r < 0.60) spawnCrystal("normal");
-    else if (r < 0.64) spawnCrystal("big");  // 大クリスタル（かなり低確率）
-    else if (r < 0.68) spawnCrystal("heal"); // 回復クリスタル
-    else               spawnEnemy();
+    if (r < 0.34)      spawnRock(false);   // 通常隕石（多め）
+    else if (r < 0.46) spawnRock(true);    // 赤い隕石
+    else if (r < 0.62) spawnCrystal("normal"); // 通常クリスタル（16%）
+    else if (r < 0.65) spawnCrystal("big");    // 大クリスタル（3%・かなり低確率）
+    else if (r < 0.67) spawnCrystal("heal");   // 回復クリスタル（2%・さらに低確率）
+    else               spawnEnemy();           // 敵（多め）
     SH.lastSpawn = now;
   }
 
@@ -2172,7 +2190,7 @@ function endShooting() {
   // 報酬：拾ったクリスタル + 到達ボーナス + ミッション(クリスタル系)ボーナス
   let reward = SH.gained;
   if (cleared) reward += currentStar.reward;
-  if (stageBonus && stageBonus.type === "crystal") reward += boosted ? 18 : 12;
+  if (stageBonus && stageBonus.type === "crystal") reward += boosted ? 15 : 10;
   save.crystals += reward;
   persist();
 
@@ -2375,6 +2393,8 @@ function startBattle(star) {
   catEl.textContent = def.cat;
   catEl.className = "enemy-cat cat-" + (def.catKey || "");
   document.getElementById("enemy-gimmick").textContent = `⚠ ${def.gimmick}`;
+  const elemEl = document.getElementById("enemy-elem");
+  if (elemEl) elemEl.innerHTML = `<span class="ew-lv">Lv.${def.level}</span>　<span class="ew-weak">弱点：${def.weak}</span>　<span class="ew-resist">耐性：${def.resist}</span>`;
   const badge = document.getElementById("enemy-badge");
   badge.textContent = def.boss ? "★ B O S S ★" : "";
   document.getElementById("battle-enemy").classList.toggle("is-boss", !!def.boss);
@@ -2430,7 +2450,7 @@ function renderParty() {
       <div class="pm-name">${m.name}</div>
       <div class="pm-hp">${m.curHp}/${m.maxHp}</div>
       <div class="pm-meta">Lv.${m.level} / ★${m.rarity}</div>
-      <div class="pm-skill">${m.bskill.name}${m.skillUsed ? " 済" : ""}</div>
+      <div class="pm-skill">技${(m.skills || []).length}・${m.bskill.name}</div>
       <div class="hpbar pm-hpbar"><div style="width:${m.curHp/m.maxHp*100}%"></div></div>
     `;
     area.appendChild(el);
@@ -2458,10 +2478,10 @@ function battleItemTotal() {
 function skillReadyCount() {
   return BT.party.filter(m => !m.dead && !m.skillUsed).length;
 }
-function renderBattleCommands(mode = "main") {
+function renderBattleCommands(mode = "main", arg = null) {
   const area = document.getElementById("battle-commands");
+  area.classList.toggle("item-mode", mode !== "main");
   if (mode === "items") {
-    area.classList.add("item-mode");
     area.innerHTML = ["smallHeal", "allHeal", "barrierOrb"].map(id => {
       const item = ITEM_DEFS[id];
       const count = itemCount(id);
@@ -2469,11 +2489,30 @@ function renderBattleCommands(mode = "main") {
     }).join("") + `<button class="btn cmd battle-back" data-cmd="items-back">戻る</button>`;
     return;
   }
-  area.classList.remove("item-mode");
-  const ready = skillReadyCount();
+  // スキル：まず使うキャラを選ぶ
+  if (mode === "skillMembers") {
+    const buttons = BT.party.map((m, i) => ({ m, i })).filter(o => !o.m.dead).map(({ m, i }) =>
+      `<button class="btn cmd skill-member-btn" data-cmd="skill-pick" data-mi="${i}">${m.face} ${m.name}<small>★${m.rarity}</small></button>`
+    ).join("");
+    area.innerHTML = buttons + `<button class="btn cmd battle-back" data-cmd="skill-back">戻る</button>`;
+    return;
+  }
+  // 選んだキャラのスキル一覧から選ぶ
+  if (mode === "skillList") {
+    const m = BT.party[arg];
+    if (!m || m.dead) { renderBattleCommands("skillMembers"); return; }
+    const list = (m.skills || [m.skillKey]).map(k => {
+      const s = SKILLS[k]; if (!s) return "";
+      return `<button class="btn cmd skill-use-btn" data-cmd="skill-use" data-mi="${arg}" data-sk="${k}">${s.name}<small>${s.element || s.desc.slice(0, 6)}</small></button>`;
+    }).join("");
+    area.innerHTML = `<div class="skill-owner">${m.face} ${m.name}</div>` + list + `<button class="btn cmd battle-back" data-cmd="skill-members">戻る</button>`;
+    return;
+  }
+  // メイン
+  const canSkill = BT.party.some(m => !m.dead && (m.skills || []).length);
   area.innerHTML = `
     <button class="btn cmd" data-cmd="fight">たたかう</button>
-    <button class="btn cmd" data-cmd="skill" data-locked="${ready ? "false" : "true"}" ${ready ? "" : "disabled"}>スキル <small>${ready}</small></button>
+    <button class="btn cmd" data-cmd="skill" data-locked="${canSkill ? "false" : "true"}" ${canSkill ? "" : "disabled"}>スキル</button>
     <button class="btn cmd" data-cmd="item">どうぐ <small>${battleItemTotal()}</small></button>
     <button class="btn cmd" data-cmd="run">にげる</button>
   `;
@@ -2491,16 +2530,33 @@ document.getElementById("battle-commands").addEventListener("click", (e) => {
   if (!btn || BT.turnLock) return;
   if (btn.dataset.item) return useBattleItem(btn.dataset.item);
   const cmd = btn.dataset.cmd;
+  if (cmd === "skill-pick") return renderBattleCommands("skillList", Number(btn.dataset.mi));
+  if (cmd === "skill-use") return doMemberSkill(Number(btn.dataset.mi), btn.dataset.sk);
   if (!cmd) return;
   handleCommand(cmd);
 });
 
 async function handleCommand(cmd) {
   if (cmd === "fight") return doFight();
-  if (cmd === "skill") return doSkill();
+  if (cmd === "skill") return renderBattleCommands("skillMembers"); // キャラ選択へ
+  if (cmd === "skill-back") return renderBattleCommands("main");
+  if (cmd === "skill-members") return renderBattleCommands("skillMembers");
   if (cmd === "item") return doItem();
   if (cmd === "items-back") return renderBattleCommands("main");
   if (cmd === "run") return doRun();
+}
+
+// 選んだキャラが、選んだスキルを使う → 敵ターン
+async function doMemberSkill(mi, skillKey) {
+  const m = BT.party[mi];
+  if (!m || m.dead) { renderBattleCommands("main"); return; }
+  const skill = SKILLS[skillKey] || m.bskill;
+  BT.turnLock = true;
+  renderBattleCommands("main"); setCommands(false);
+  await useMemberSkill(m, skill);
+  renderParty();
+  if (BT.enemyHp <= 0) return enemyDefeated();
+  await enemyTurn();
 }
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -2530,9 +2586,19 @@ function rollMemberDamage(m, multiplier = 1) {
   return { dmg, crit, buffed: buff > 1 };
 }
 
-async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false) {
+// 属性相性：弱点×1.5 / 耐性×0.6
+function elementResult(element) {
+  if (!element || !BT.enemy) return { mult: 1, tag: "" };
+  if (element === BT.enemy.weak) return { mult: 1.5, tag: " 弱点！" };
+  if (element === BT.enemy.resist) return { mult: 0.6, tag: " 耐性…" };
+  return { mult: 1, tag: "" };
+}
+
+async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false, element = "物理") {
+  const { mult, tag } = elementResult(element);
+  dmg = Math.max(1, Math.round(dmg * mult));
   BT.enemyHp -= dmg;
-  log(`${m.name}の ${label}！ ${dmg} のダメージ${crit ? "（会心）" : ""}${buffed ? "（エール）" : ""}`);
+  log(`${m.name}の ${label}！ ${dmg} のダメージ${crit ? "（会心）" : ""}${buffed ? "（エール）" : ""}${tag}`);
   enemySprite().classList.add("hit");
   playBattleHitEffect();
   setEnemyHpBar();
@@ -2540,8 +2606,7 @@ async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false) {
   enemySprite().classList.remove("hit");
 }
 
-async function useMemberSkill(m) {
-  const skill = m.bskill || SKILLS.slash;
+async function useMemberSkill(m, skill = m.bskill || SKILLS.slash) {
   log(`✦ ${m.name}の「${skill.name}」！`);
   playBattleSkillEffect();
   await wait(120);
@@ -2572,14 +2637,14 @@ async function useMemberSkill(m) {
   if (skill.kind === "bigRandom") {
     if (Math.random() < 0.35) {
       const { dmg } = rollMemberDamage(m, skill.power);
-      return applyEnemyDamage(m, dmg, skill.name, true);
+      return applyEnemyDamage(m, dmg, skill.name, true, false, skill.element);
     }
     const { dmg } = rollMemberDamage(m, 0.35);
-    return applyEnemyDamage(m, dmg, `${skill.name}（失敗）`);
+    return applyEnemyDamage(m, dmg, `${skill.name}（失敗）`, false, false, skill.element);
   }
   const mult = skill.kind === "crit" ? skill.power : (skill.kind === "atkAll" ? skill.power * 1.15 : skill.power);
   const { dmg, crit, buffed } = rollMemberDamage(m, mult);
-  return applyEnemyDamage(m, dmg, skill.name, skill.kind === "crit" || crit, buffed);
+  return applyEnemyDamage(m, dmg, skill.name, skill.kind === "crit" || crit, buffed, skill.element);
 }
 
 // 仲間が順番に攻撃
@@ -3084,9 +3149,16 @@ function attemptScout() {
   if (save.crystals < cost) return; // 念のため
   if (beacon) consumeItem("scoutBeacon");
   if (Math.random() < rate) {
+    addDexStat(ally.id, "scoutSuccessCount", 1);
+    // パーティ満員かつ未加入なら、入れ替え選択画面へ
+    if (!save.party.includes(ally.id) && save.party.length >= 4) {
+      scoutPendingCost = cost; scoutPendingBeacon = beacon;
+      persist();
+      showScoutReplace(ally, cost, beacon);
+      return;
+    }
     save.crystals -= cost;          // 成功時のみ消費
     const recruitResult = recruit(ally); // パーティ加入＋「加入済み」記録
-    addDexStat(ally.id, "scoutSuccessCount", 1);
     showScoutResult(ally, "success", cost, recruitResult, beacon);
   } else {
     // 失敗：仲間にならない／消費なし（MVP）／図鑑は発見済みのまま
@@ -3094,6 +3166,59 @@ function attemptScout() {
     showScoutResult(ally, "fail", 0, {}, beacon);
   }
   persist();
+}
+
+let scoutPendingCost = 0, scoutPendingBeacon = false;
+
+// パーティ満員時：新メンバーと現4人を見せ、誰と別れるか / 図鑑だけかを選ばせる
+function showScoutReplace(ally, cost, beacon) {
+  document.getElementById("scout-title").textContent = "パーティが満員！";
+  const box = document.getElementById("scout-result");
+  box.innerHTML = `
+    <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
+    <div class="scout-voice ok">「${ally.voice.ok}」</div>
+    <div class="scout-msg" style="color:var(--ok)">${ally.name}（★${ally.rarity}）を 仲間にできる！</div>
+    <div class="scout-sub">誰かと別れて入れるか、図鑑にだけ残すか えらぼう（💎${cost}）</div>
+  `;
+  const memberBtns = save.party.map((id, i) => {
+    const m = allyById(id);
+    return `<button class="btn scout-replace-btn" data-action="scout-replace" data-idx="${i}">${m.face} ${m.name} とさよなら</button>`;
+  }).join("");
+  document.getElementById("scout-actions").innerHTML =
+    memberBtns + `<button class="btn" data-action="scout-figure">加入せず 図鑑だけ登録</button>`;
+}
+
+// 指定スロットの仲間と別れて加入
+function doReplace(idx) {
+  const ally = scoutCandidate;
+  const replacedId = save.party[idx];
+  if (!ally || replacedId == null) return;
+  save.crystals -= scoutPendingCost;
+  if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
+  markDiscovered(ally.id, { countEncounter: false, doPersist: false });
+  const replaced = allyById(replacedId);
+  save.party[idx] = ally.id;
+  addDexStat(replacedId, "partedCount", 1); // 別れた回数を記録（図鑑には残る）
+  persist();
+  showScoutResult(ally, "success", scoutPendingCost, { addedToParty: true, replaced }, scoutPendingBeacon);
+}
+
+// 加入せず図鑑だけ登録（費用なし・パーティ不変）
+function doFigureOnly() {
+  const ally = scoutCandidate;
+  if (!ally) return;
+  if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
+  markDiscovered(ally.id, { countEncounter: false, doPersist: false });
+  persist();
+  document.getElementById("scout-title").textContent = "図鑑に登録";
+  document.getElementById("scout-result").innerHTML = `
+    <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
+    <div class="scout-voice bye">「${ally.voice.bye}」</div>
+    <div class="scout-msg">${ally.name} は 図鑑にだけ 記録された</div>
+    <div class="scout-sub">パーティはそのまま（クリスタルは消費していない）</div>
+  `;
+  document.getElementById("scout-actions").innerHTML =
+    `<button class="btn btn-primary" data-action="scout-continue">つづける</button>`;
 }
 
 // パーティ加入（4人を超える場合は末尾と入れ替え）
@@ -3161,9 +3286,13 @@ function skipScout(ally) {
 }
 
 document.querySelector("#screen-scout").addEventListener("click", (e) => {
-  const a = e.target.dataset.action;
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const a = btn.dataset.action;
   if (a === "scout-do") attemptScout();
   else if (a === "scout-skip") skipScout(scoutCandidate);
+  else if (a === "scout-replace") doReplace(Number(btn.dataset.idx));
+  else if (a === "scout-figure") doFigureOnly();
   else if (a === "scout-continue") { refreshCrystals(); show("worldmap"); }
 });
 
