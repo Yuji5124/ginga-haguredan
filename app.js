@@ -370,7 +370,7 @@ const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
     atk: 8 + rarity * 4,                // レア度で攻撃力自動算出
     def: 2 + Math.round(rarity * 1.4),  // 防御
     spd: 8 + rarity * 2 + (no % 5),     // 素早さ
-    level: 1 + Math.floor(rarity / 2),  // レベル（表示は控えめ）
+    level: rarity,                      // レベル＝レア度（1〜10。編成の強さの目安）
     skillKey,
     skills,                              // 戦闘で選べるスキル一覧
     bskill: SKILLS[skillKey],           // 戦闘スキル（シグネチャ）
@@ -444,8 +444,9 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const id = "s" + stage, eid = "e" + stage;
   const boss = stage === 20;
   // 序盤はゆるく、中盤以降は曲線的に強くなる（仲間集め/スカウトを促す）
-  const hp = Math.round((20 + stage * 12 + stage * stage * 1.1) * (boss ? 1.6 : 1));
-  const atk = Math.round((4 + stage * 1.6 + stage * stage * 0.12) * (boss ? 1.4 : 1));
+  // 中盤以降を大きく強化（stage10で味方平均Lv4、stage17で平均Lv7.5級の編成が必要な手応え）
+  const hp = Math.round((18 + stage * 10 + stage * stage * 2.6) * (boss ? 1.6 : 1));
+  const atk = Math.round((4 + stage * 1.2 + stage * stage * 0.18) * (boss ? 1.4 : 1));
   // 推奨戦力と危険度（ワールドマップ表示用）
   const danger = Math.min(5, Math.ceil(stage / 4));
   const recommend = stage <= 1 ? "仲間1人〜"
