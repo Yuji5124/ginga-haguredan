@@ -231,6 +231,7 @@
 
     <!-- ============ RPG戦闘 ============ -->
     <section id="screen-battle" class="screen">
+      <div id="battle-canvas"></div>
       <div class="battle-field">
         <div class="enemy-area">
           <div id="battle-enemy" class="battle-enemy">
@@ -255,6 +256,25 @@
           <button class="btn cmd" data-cmd="item">どうぐ</button>
           <button class="btn cmd" data-cmd="run">にげる</button>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ ラスボス最終演出（仮・Part2土台） ============ -->
+    <section id="screen-final" class="screen">
+      <div class="final-inner">
+        <h2 class="final-title">最終決戦</h2>
+        <div class="final-msg" id="final-msg"></div>
+        <div class="final-demon-line" id="final-demon-line"></div>
+        <button class="btn btn-primary final-scout-btn" id="final-scout-btn" data-action="final-scout">スカウト</button>
+      </div>
+    </section>
+
+    <!-- ============ エンディング（仮） ============ -->
+    <section id="screen-ending" class="screen">
+      <div class="ending-inner">
+        <h2 class="ending-title">― 銀河はぐれ団 ―</h2>
+        <p class="ending-sub">（エンディング・仮）</p>
+        <button class="btn btn-primary" data-action="ending-title">タイトルへ</button>
       </div>
     </section>
 

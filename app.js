@@ -1815,10 +1815,16 @@ document.querySelector("#screen-pino").addEventListener("click", (e) => {
 // -------------------------------------------------------------
 const BT = { enemy: null, enemyHp: 0, party: [], turnLock: false, won: false };
 
+// ラスボス最終演出フラグ（Part2の土台）
+let isFinalBossBattle = false;
+let finalPhase = false;
+
 function startBattle(star) {
   show("battle");
   const def = ENEMIES[star.enemy];
   BT.enemy = def;
+  isFinalBossBattle = !!def.boss;   // ステージ20のボス＝ラスボス
+  finalPhase = false;
   const boosted = stageBonus && stageBonus.boosted;
   // 航行ボーナス：敵HP -10%（強化時 -15%）
   const enemyHpDown = stageBonus && stageBonus.type === "enemyHp";
@@ -1856,6 +1862,11 @@ function startBattle(star) {
     log(`✦ 航行ボーナス：${stageBonus.label}${stageBonus.boosted ? "（強化）" : ""}`);
   }
   setCommands(true);
+
+  // Three.js 宇宙風の戦闘背景
+  initBattleScene();
+  updateBattleSceneEnemy(def);
+  startBattleScene();
 }
 
 function renderParty() {
@@ -1915,6 +1926,7 @@ async function doFight() { return attackRound(1.0, "こうげき"); }
 
 async function doSkill() {
   log("✦ ひっさつのスキル！");
+  playBattleSkillEffect();
   return attackRound(1.6, "スキル");
 }
 
@@ -1928,6 +1940,7 @@ async function attackRound(multiplier, label) {
     BT.enemyHp -= dmg;
     log(`${m.name}の ${label}！ ${dmg} のダメージ`);
     enemySprite().classList.add("hit");
+    playBattleHitEffect();
     setEnemyHpBar();
     await wait(BATTLE_HIT_WAIT_MS);
     enemySprite().classList.remove("hit");
@@ -1977,6 +1990,13 @@ async function doRun() {
 
 function enemyDefeated() {
   setEnemyHpBar();
+  // ラスボス戦：通常勝利ではなく「最終フェーズ」へ（仮）
+  if (isFinalBossBattle) {
+    log(`${BT.enemy.name}を たおした……かに見えた`);
+    BT.turnLock = true; setCommands(false);
+    setTimeout(() => enterFinalPhase(), 900);
+    return;
+  }
   log(`${BT.enemy.name}を たおした！`);
   BT.won = true;
   // クリア登録
@@ -1990,6 +2010,160 @@ function partyWipe() {
   log("パーティは ぜんめつした…");
   setTimeout(() => { toast("ぜんめつ… 拠点にもどる"); show("worldmap"); }, WIPE_RETURN_MS);
 }
+
+// -------------------------------------------------------------
+// Three.js 宇宙風の戦闘背景（軽量：星粒子＋星雲＋敵オーラ）
+// レンダラは1つだけ生成して再利用、戦闘以外ではループ自動停止
+// -------------------------------------------------------------
+const BS = { renderer: null, scene: null, camera: null, raf: null, stars: null, neb: [], aura: null, t: 0, w: 0, h: 0 };
+
+function makeNebulaTexture() {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.4, "rgba(255,255,255,0.4)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+function initBattleScene() {
+  if (BS.renderer) return;                 // 再利用（WebGLコンテキストを増やさない）
+  const host = document.getElementById("battle-canvas");
+  if (!host || typeof THREE === "undefined") return;
+  BS.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  BS.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  BS.w = host.clientWidth || 360; BS.h = host.clientHeight || 640;
+  BS.renderer.setSize(BS.w, BS.h, false);
+  host.appendChild(BS.renderer.domElement);
+  BS.scene = new THREE.Scene();
+  BS.camera = new THREE.PerspectiveCamera(60, BS.w / BS.h, 0.1, 200);
+  BS.camera.position.set(0, 0, 18);
+
+  // 星粒子
+  const geo = new THREE.BufferGeometry();
+  const N = 500, p = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) { p[i*3] = (Math.random()-0.5)*70; p[i*3+1] = (Math.random()-0.5)*70; p[i*3+2] = -Math.random()*60; }
+  geo.setAttribute("position", new THREE.BufferAttribute(p, 3));
+  BS.stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xbcd4ff, size: 0.18, transparent: true, opacity: 0.9 }));
+  BS.scene.add(BS.stars);
+
+  // ゆっくり動く星雲風グラデ（加算ブレンドの大きな半透明プレーン）
+  const tex = makeNebulaTexture();
+  [[-7, 3, -22, 0x5a3aa0], [8, -2, -26, 0x2a5aa0], [0, 7, -30, 0x803060]].forEach(([x, y, z, c]) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(34, 34),
+      new THREE.MeshBasicMaterial({ map: tex, color: c, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.position.set(x, y, z); BS.scene.add(m); BS.neb.push(m);
+  });
+
+  // 敵オーラ（中央上、敵の背後）
+  BS.aura = new THREE.Mesh(new THREE.PlaneGeometry(9, 9),
+    new THREE.MeshBasicMaterial({ map: tex, color: 0xff66cc, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+  BS.aura.position.set(0, 3.5, -6); BS.scene.add(BS.aura);
+}
+
+// 敵に合わせてオーラ色／大きさを更新
+function updateBattleSceneEnemy(enemy) {
+  if (!BS.aura) return;
+  const byCat = { bio: 0x66ff99, robo: 0x66ccff, villain: 0xff8a4a, concept: 0xc266ff };
+  BS.aura.material.color.setHex((enemy && byCat[enemy.catKey]) || 0xff66cc);
+  BS.auraBase = enemy && enemy.boss ? 1.7 : 1.0;
+  BS.aura.scale.setScalar(BS.auraBase);
+}
+
+function renderBattleScene() {
+  if (currentScreen !== "battle") { BS.raf = null; return; } // 戦闘以外では自動停止
+  const host = document.getElementById("battle-canvas");
+  if (host && (host.clientWidth !== BS.w || host.clientHeight !== BS.h) && host.clientWidth) {
+    BS.w = host.clientWidth; BS.h = host.clientHeight;
+    BS.renderer.setSize(BS.w, BS.h, false);
+    BS.camera.aspect = BS.w / BS.h; BS.camera.updateProjectionMatrix();
+  }
+  BS.t += 0.016;
+  BS.stars.rotation.z += 0.0006;
+  BS.neb.forEach((m, i) => { m.rotation.z += 0.0008 * (i % 2 ? 1 : -1); m.material.opacity = 0.3 + 0.08 * Math.sin(BS.t * 0.5 + i); });
+  if (BS.aura) { BS.aura.rotation.z += 0.01; BS.aura.material.opacity = 0.4 + 0.15 * Math.sin(BS.t * 1.5); }
+  BS.renderer.render(BS.scene, BS.camera);
+  BS.raf = requestAnimationFrame(renderBattleScene);
+}
+
+function startBattleScene() {
+  if (!BS.renderer) return;
+  cancelAnimationFrame(BS.raf);
+  BS.raf = requestAnimationFrame(renderBattleScene);
+}
+function stopBattleScene() { cancelAnimationFrame(BS.raf); BS.raf = null; }
+
+function flashBattle(color) {
+  const host = document.getElementById("battle-canvas");
+  if (!host) return;
+  host.style.transition = "none"; host.style.boxShadow = `inset 0 0 100px ${color}`;
+  requestAnimationFrame(() => { host.style.transition = "box-shadow .35s"; host.style.boxShadow = "inset 0 0 0 transparent"; });
+}
+function playBattleHitEffect() { if (BS.aura) BS.aura.material.opacity = 0.95; flashBattle("rgba(255,255,255,.5)"); }
+function playBattleSkillEffect() { if (BS.aura) BS.aura.material.opacity = 1.0; flashBattle("rgba(150,200,255,.6)"); }
+
+// 戦闘背景の完全破棄（必要時のみ。通常は再利用＋ループ停止で十分）
+function disposeBattleScene() {
+  stopBattleScene();
+  if (BS.renderer) {
+    BS.renderer.dispose();
+    const el = BS.renderer.domElement;
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+  BS.renderer = null; BS.scene = null; BS.stars = null; BS.neb = []; BS.aura = null;
+}
+
+// -------------------------------------------------------------
+// ラスボス最終演出（仮・Part2の土台）
+// -------------------------------------------------------------
+let finalScoutPresses = 0;
+const FINAL_SCOUT_LABELS = ["スカウト", "スカウト", "スカウ…", "ス…"];
+const DEMON_LAST_LINE = "そんな未来を知っていれば、私にも…";
+
+function enterFinalPhase() {
+  finalPhase = true;
+  finalScoutPresses = 0;
+  // ステージ20到達＝クリア扱いにしておく（仮）
+  if (currentStar && !save.cleared.includes(currentStar.id)) { save.cleared.push(currentStar.id); persist(); }
+  show("final");
+  renderFinalPhase();
+}
+
+function renderFinalPhase() {
+  const msg = document.getElementById("final-msg");
+  const btn = document.getElementById("final-scout-btn");
+  const demon = document.getElementById("final-demon-line");
+  msg.textContent = "仲間は みな たおれた……主人公だけが 残った。";
+  demon.textContent = "";
+  btn.style.display = ""; btn.textContent = "スカウト";
+}
+
+function pressFinalScout() {
+  finalScoutPresses++;
+  const msg = document.getElementById("final-msg");
+  const btn = document.getElementById("final-scout-btn");
+  const demon = document.getElementById("final-demon-line");
+  if (finalScoutPresses <= FINAL_SCOUT_LABELS.length) {
+    // 1〜4回目：表示が崩れていく（スカウト→スカウト→スカウ…→ス…）
+    btn.textContent = FINAL_SCOUT_LABELS[finalScoutPresses - 1];
+    msg.textContent = finalScoutPresses >= 3 ? "それでも 立ち上がる……" : "スカウト…… 失敗。";
+  } else {
+    // 5回目：魔王の最後のセリフ → エンディング仮画面
+    btn.style.display = "none";
+    msg.textContent = "魔王は 主人公の姿を 見て……崩れていく。";
+    demon.textContent = `「${DEMON_LAST_LINE}」`;
+    setTimeout(() => show("ending"), 3500);
+  }
+}
+
+document.querySelector("#screen-final").addEventListener("click", (e) => {
+  if (e.target.closest('[data-action="final-scout"]')) pressFinalScout();
+});
+document.querySelector("#screen-ending").addEventListener("click", (e) => {
+  if (e.target.closest('[data-action="ending-title"]')) show("title");
+});
 
 // -------------------------------------------------------------
 // スカウト（戦闘勝利後に出会った仲間候補をスカウトする）
@@ -2225,5 +2399,8 @@ window.GAME = {
     persist();
     return heroCount();
   },
+  get finalPhase() { return finalPhase; },
+  goFinalPhase: () => { currentStar = STARS[19]; isFinalBossBattle = true; enterFinalPhase(); }, // 最終演出へ直接（デバッグ）
+  disposeBattleScene,
   reset: resetSave,
 };

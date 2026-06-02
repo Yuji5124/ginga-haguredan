@@ -876,3 +876,20 @@ html, body {
   max-width: 80%; text-align: center;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== v0.7 Three.js 戦闘背景 ===== */
+#battle-canvas { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+#battle-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+#screen-battle .battle-field, #screen-battle .battle-ui { position: relative; z-index: 1; }
+
+/* ===== v0.7 ラスボス最終演出（仮） ===== */
+#screen-final { background: radial-gradient(circle at 50% 40%, #2a0a1a, #05030f); align-items: center; justify-content: center; }
+.final-inner { text-align: center; padding: 24px; max-width: 360px; }
+.final-title { font-size: 22px; color: #f88; letter-spacing: .1em; margin-bottom: 18px; text-shadow: 0 0 18px rgba(255,80,80,.5); }
+.final-msg { font-size: 15px; color: #eaf0ff; line-height: 1.6; min-height: 48px; }
+.final-demon-line { font-size: 17px; font-weight: 800; color: #f9c; margin-top: 16px; min-height: 26px; text-shadow: 0 0 14px rgba(255,80,120,.6); }
+.final-scout-btn { margin-top: 24px; width: 200px; }
+#screen-ending { background: radial-gradient(circle at 50% 40%, #101630, #05030f); align-items: center; justify-content: center; }
+.ending-inner { text-align: center; padding: 24px; }
+.ending-title { font-size: 26px; color: #9cf; letter-spacing: .08em; text-shadow: 0 0 24px rgba(120,160,255,.5); }
+.ending-sub { font-size: 13px; color: #9ab; margin: 12px 0 28px; }
