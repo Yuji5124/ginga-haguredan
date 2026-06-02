@@ -163,6 +163,7 @@ const RARITY = {
   9:  { cost: 70,  baseRate: 0.24 },
   10: { cost: 80,  baseRate: 0.18 },
 };
+const LOW_RARITY_MAX = 3;
 
 // 航行ボーナスの定義（8種）。レア度に応じて各仲間へ自動割当
 const NAV_DEFS = {
@@ -312,14 +313,51 @@ const PASSIVES = [
   { id: "lucky", label: "幸運（会心率+12%）",      crit: 0.12 },
 ];
 
+const ALLY_TAG_OVERRIDES = {
+  c1: ["機械", "はぐれもの", "低レア"],
+  c2: ["精霊", "不思議", "低レア"],
+  c3: ["宇宙人", "回復", "低レア"],
+  c4: ["機械", "守り", "低レア"],
+  c5: ["宇宙人", "不思議", "低レア"],
+  c6: ["宇宙人", "回復", "低レア"],
+  c7: ["動物", "はぐれもの", "低レア"],
+  c8: ["機械", "不思議", "低レア"],
+};
+
+function tagsForAlly(no, rarity, skillKey, name, face, setting, skill) {
+  const id = "c" + no;
+  if (ALLY_TAG_OVERRIDES[id]) return ALLY_TAG_OVERRIDES[id].slice();
+
+  const tags = new Set();
+  const text = `${name} ${face} ${setting} ${skill}`;
+  if (rarity <= LOW_RARITY_MAX) tags.add("低レア");
+
+  if (/はぐれ|迷子|壊れ|ボロ|弱|忘れ|ノイズ|バグ|怪盗|脱走|失った|逃げた/.test(text)) tags.add("はぐれもの");
+  if (/ロボ|AI|機械|ネジ|電池|メカ|ボタン|ブリキ|アンドロイド|兵|時計|鉄|タワン|プロト|コア|アンテナ|歯車/.test(text) || /🤖|🔩|⚙️|🔋|🛞|🦾|🕰️|📡|🛰️/.test(face)) tags.add("機械");
+  if (/犬|猫|魚|鳥|うさぎ|きつね|モグラ|竜|獣|狼|ペリカン|卵|モンスター|生物|ベビー/.test(text) || /🐟|🐈|🐇|🐕|🦊|🦡|🐲|🐺|🐉|🥚|🕊️/.test(face)) tags.add("動物");
+  if (/星|精霊|魔女|巫女|守護|妖精|神|天使|月|彗星|太陽|重力|ブラックホール|エーテル|星雲|星屑|星くず/.test(text) || /✨|🌟|🌌|💫|🧚|👼|🔮|🌑|🕳️/.test(face)) tags.add("精霊");
+  if (/宇宙人|星人|銀河|ノヴァ|コスモ|エーテル|宇宙|宇宙服|オルカ号/.test(text) || /👽|👨‍🚀|🚀|🛰️|📡/.test(face)) tags.add("宇宙人");
+
+  if (skillKey === "heal" || /回復|治療|医|薬|看護|料理|ヒール|修理|直す/.test(text)) tags.add("回復");
+  if (skillKey === "guard" || /防御|守|騎士|鎧|盾|バリア|かばう|ガード/.test(text)) tags.add("守り");
+  if (["slash", "burst", "crit", "gamble"].includes(skillKey) || /攻撃|火力|斬|剣|射撃|火|雷|武器|体当たり|必殺/.test(text)) tags.add("攻撃");
+  if (["weaken", "cheer"].includes(skillKey) || /ランダム|バグ|奇跡|記憶|時間|未来|占い|魔法|予測|重力|ルール|コピー/.test(text)) tags.add("不思議");
+
+  if (tags.size < 2) tags.add("はぐれもの");
+  if (tags.size < 2) tags.add("不思議");
+  return Array.from(tags).slice(0, 3);
+}
+
 // RAW から実データへ展開（レア度・ステータス・スキル・パッシブ・航行効果・ボイスを自動算出）
 const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
   const rarity = Math.floor((no - 1) / 10) + 1;
   const id = "c" + no;
   const skillKey = SKILL_KEYS[(no - 1) % SKILL_KEYS.length];
+  const tags = tagsForAlly(no, rarity, skillKey, name, face, setting, skill);
   return {
     id, name, face, img: id, rarity, setting, skill,
-    tag: skill,                         // スカウト画面のタグ欄に「得意なこと」を表示
+    tag: tags.join(" / "),
+    tags,
     hp: 30 + rarity * 14,               // レア度でHP自動算出
     atk: 8 + rarity * 4,                // レア度で攻撃力自動算出
     def: 2 + Math.round(rarity * 1.4),  // 防御
@@ -442,12 +480,69 @@ const defaultItems = () => Object.fromEntries(ITEM_ORDER.map(id => [id, 0]));
 // 直前の航行で獲得したボーナス（次の戦闘/スカウトに反映）。なければ null
 let stageBonus = null;
 
+const SYNERGY_DEFS = [
+  { id: "machine", tag: "機械", min: 2, name: "機械リンク", desc: "防御 +10%", apply: e => { e.defMul *= 1.10; } },
+  { id: "animal", tag: "動物", min: 2, name: "動物の勘", desc: "回避率 +8%", apply: e => { e.evasion += 0.08; } },
+  { id: "spirit", tag: "精霊", min: 2, name: "星霊の余韻", desc: "戦闘後に全員少し回復", apply: e => { e.postBattleHeal += 8; } },
+  { id: "alien", tag: "宇宙人", min: 2, name: "宇宙人ネット", desc: "航行クリスタル +10%", apply: e => { e.crystalMul *= 1.10; } },
+  { id: "stray", tag: "はぐれもの", min: 2, name: "はぐれものの絆", desc: "スカウト率 +5%", apply: e => { e.scoutRate += 0.05; } },
+  { id: "heal", tag: "回復", min: 1, name: "回復役の見守り", desc: "ターン終了時に低HPを回復", apply: e => { e.turnHeal += 6; } },
+  { id: "attack", tag: "攻撃", min: 2, name: "攻撃陣形", desc: "通常攻撃 +8%", apply: e => { e.normalAtkMul *= 1.08; } },
+  { id: "guard", tag: "守り", min: 2, name: "守りの構え", desc: "戦闘開始バリア ×1", apply: e => { e.battleBarrier += 1; } },
+  { id: "mystery", tag: "不思議", min: 2, name: "不思議な追い風", desc: "ミッション報酬を強化", apply: e => { e.missionBoost = true; } },
+  { id: "low", tag: "低レア", min: 2, name: "小さな意地", desc: "低レアHP +10%", apply: e => { e.lowRarityHpMul *= 1.10; } },
+];
+
+function baseSynergyEffects() {
+  return {
+    defMul: 1, evasion: 0, postBattleHeal: 0, crystalMul: 1, scoutRate: 0,
+    turnHeal: 0, normalAtkMul: 1, battleBarrier: 0, missionBoost: false,
+    lowRarityHpMul: 1,
+  };
+}
+
+function computePartyTagCounts(partyIds = save.party) {
+  const counts = {};
+  (partyIds || []).slice(0, 4).forEach(id => {
+    const a = allyById(id);
+    (a?.tags || []).forEach(tag => { counts[tag] = (counts[tag] || 0) + 1; });
+  });
+  return counts;
+}
+
+function computeSynergies(partyIds = save.party) {
+  const counts = computePartyTagCounts(partyIds);
+  const effects = baseSynergyEffects();
+  const active = [];
+  SYNERGY_DEFS.forEach(def => {
+    const count = counts[def.tag] || 0;
+    if (count < def.min) return;
+    def.apply(effects);
+    active.push({ id: def.id, tag: def.tag, count, name: def.name, desc: def.desc });
+  });
+  return { counts, active, effects };
+}
+
+function renderSynergyPanel(synergy = computeSynergies(save.party), title = "発動中シナジー") {
+  const active = synergy.active || [];
+  const body = active.length
+    ? active.map(s => `<span class="synergy-pill"><b>${s.name}</b>${s.desc}</span>`).join("")
+    : `<span class="synergy-empty">発動中のシナジーなし</span>`;
+  return `
+    <div class="synergy-panel">
+      <div class="synergy-title">${title}</div>
+      <div class="synergy-tags">${body}</div>
+    </div>
+  `;
+}
+
 // パーティ構成から航行（シューティング）効果を集約
-function computeNavEffects(partyIds) {
+function computeNavEffects(partyIds = save.party) {
   const e = {
     fireRateMul: 1, crystalMul: 1, rockGuardChance: 0, killBonus: 0,
     bigBonus: 0, shields: 0, hazardSpeedMul: 1, missionBoost: false, labels: [],
   };
+  const synergy = computeSynergies(partyIds);
   partyIds.forEach(id => {
     const a = allyById(id);
     if (!a || !a.navBonus) return;
@@ -463,6 +558,9 @@ function computeNavEffects(partyIds) {
     }
     e.labels.push({ name: a.name, img: a.img, face: a.face, label: a.navBonus.label });
   });
+  e.synergy = synergy;
+  e.crystalMul *= synergy.effects.crystalMul;
+  if (synergy.effects.missionBoost) e.missionBoost = true;
   e.fireRateMul = Math.max(0.4, e.fireRateMul);     // 上限（速くなりすぎない）
   e.hazardSpeedMul = Math.max(0.7, e.hazardSpeedMul);
   return e;
@@ -475,12 +573,71 @@ function computeNavEffects(partyIds) {
 // -------------------------------------------------------------
 const SAVE_KEY = "ginga-haguredan-save-v1";
 
+const DEX_STAT_KEYS = [
+  "foundCount",
+  "scoutSuccessCount",
+  "scoutFailCount",
+  "skipCount",
+  "partedCount",
+  "lastMetStar",
+  "lastPartyStar",
+  "clearMemberCount",
+  "firstMetStar",
+];
+const DEX_STAT_ALIASES = {
+  found: "foundCount",
+  discover: "foundCount",
+  discovered: "foundCount",
+  success: "scoutSuccessCount",
+  scoutSuccess: "scoutSuccessCount",
+  fail: "scoutFailCount",
+  scoutFail: "scoutFailCount",
+  skip: "skipCount",
+  skipped: "skipCount",
+  parted: "partedCount",
+  clear: "clearMemberCount",
+  clearMember: "clearMemberCount",
+};
+
+function defaultDexStat() {
+  return {
+    foundCount: 0,
+    scoutSuccessCount: 0,
+    scoutFailCount: 0,
+    skipCount: 0,
+    partedCount: 0,
+    lastMetStar: null,
+    lastPartyStar: null,
+    clearMemberCount: 0,
+    firstMetStar: null,
+  };
+}
+
+function normalizeDexStat(raw = {}) {
+  const stat = Object.assign(defaultDexStat(), raw || {});
+  ["foundCount", "scoutSuccessCount", "scoutFailCount", "skipCount", "partedCount", "clearMemberCount"]
+    .forEach(key => { stat[key] = Math.max(0, Number(stat[key]) || 0); });
+  ["lastMetStar", "lastPartyStar", "firstMetStar"]
+    .forEach(key => { stat[key] = stat[key] || null; });
+  return stat;
+}
+
+function starterDexStats() {
+  const stat = defaultDexStat();
+  stat.foundCount = 1;
+  stat.scoutSuccessCount = 1;
+  stat.firstMetStar = "初期メンバー";
+  stat.lastPartyStar = "初期メンバー";
+  return { [STARTER_ID]: stat };
+}
+
 const defaultSave = () => ({
   crystals: 0,
   cleared: [],                  // クリア済み星ID
   party: [STARTER_ID],          // 初期メンバー
   discovered: [STARTER_ID],     // 図鑑：発見済み（出会った）仲間ID
   recruited: [STARTER_ID],      // 図鑑：加入済み（スカウト成功）仲間ID
+  dexStats: starterDexStats(),   // 図鑑：出会い・成功・別れなどの記録
   items: defaultItems(),         // ショップで購入したアイテム所持数
 });
 
@@ -505,11 +662,14 @@ function loadSave() {
       if (data.party.length === 0) data.party = [STARTER_ID];
       if (!data.discovered.includes(STARTER_ID)) data.discovered.push(STARTER_ID);
       if (!data.recruited.includes(STARTER_ID)) data.recruited.push(STARTER_ID);
+      ensureDexStats(data);
       data.items = Object.assign(defaultItems(), data.items || {});
       return data;
     }
   } catch (e) { console.warn("save load failed", e); }
-  return defaultSave();
+  const fresh = defaultSave();
+  ensureDexStats(fresh);
+  return fresh;
 }
 function persist() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
@@ -517,7 +677,56 @@ function persist() {
 }
 function resetSave() {
   save = defaultSave();
+  ensureDexStats(save);
   persist();
+}
+
+function ensureDexStats(data = save) {
+  const valid = new Set(ALLIES.map(a => a.id));
+  const source = data.dexStats && typeof data.dexStats === "object" ? data.dexStats : {};
+  const next = {};
+  Object.keys(source).forEach(id => {
+    if (valid.has(id)) next[id] = normalizeDexStat(source[id]);
+  });
+  data.dexStats = next;
+
+  (data.discovered || []).forEach(id => {
+    if (!valid.has(id)) return;
+    const stat = dexStat(id, data);
+    if (stat.foundCount <= 0) stat.foundCount = 1;
+    if (id === STARTER_ID && !stat.firstMetStar) stat.firstMetStar = "初期メンバー";
+  });
+  (data.recruited || []).forEach(id => {
+    if (!valid.has(id)) return;
+    const stat = dexStat(id, data);
+    if (stat.scoutSuccessCount <= 0) stat.scoutSuccessCount = 1;
+  });
+  return data.dexStats;
+}
+
+function dexStat(id, data = save) {
+  if (!data.dexStats || typeof data.dexStats !== "object") data.dexStats = {};
+  data.dexStats[id] = normalizeDexStat(data.dexStats[id]);
+  return data.dexStats[id];
+}
+
+function resolveDexStatKey(key) {
+  return DEX_STAT_ALIASES[key] || key;
+}
+
+function addDexStat(id, key, amount = 1) {
+  const stat = dexStat(id);
+  const resolved = resolveDexStatKey(key);
+  if (!DEX_STAT_KEYS.includes(resolved) || typeof stat[resolved] !== "number") {
+    console.warn("unknown numeric dex stat", key);
+    return stat;
+  }
+  stat[resolved] += amount;
+  return stat;
+}
+
+function starRecordLabel(star = currentStar) {
+  return star ? `${star.stage}. ${star.name}` : null;
 }
 
 // ラスボス挑戦に必要な仲間数（No.1〜99）。No.100 オルカ号は特別枠で除外
@@ -827,13 +1036,15 @@ document.querySelector("#screen-title").addEventListener("click", (e) => {
 // パーティ / 設定 画面（タイトルのサブ画面）
 function renderPartyScreen() {
   const list = document.getElementById("party-list");
-  list.innerHTML = save.party.map(id => {
+  const synergy = computeSynergies(save.party);
+  list.innerHTML = renderSynergyPanel(synergy) + save.party.map(id => {
     const a = allyById(id); if (!a) return "";
     return `
       <div class="party-row">
         <div class="pr-face">${faceHTML(a.face, `characters/${a.img}`)}</div>
         <div class="pr-info">
           <div class="pr-name">${a.name} <span class="rarity">★${a.rarity}</span></div>
+          <div class="pr-tags">${a.tags.map(tag => `<span class="tag-chip">${tag}</span>`).join("")}</div>
           <div class="pr-sub">${a.setting}</div>
           <div class="pr-sub">Lv.${a.level} ／ HP${a.hp} ／ 攻${a.atk} ／ 防${a.def} ／ 速${a.spd}</div>
           <div class="pr-sub">スキル：${a.bskill.name}（${a.bskill.desc}）</div>
@@ -978,7 +1189,8 @@ function stopWorldmap() { cancelAnimationFrame(wmRAF); }
 
 function renderStarList() {
   const list = document.getElementById("star-list");
-  list.innerHTML = "";
+  const synergy = computeSynergies(save.party);
+  list.innerHTML = renderSynergyPanel(synergy);
   const nextIndex = STARS.findIndex(star => !save.cleared.includes(star.id));
   const hc = heroCount();
   STARS.forEach((star, i) => {
@@ -1047,7 +1259,7 @@ function showPreflight(star) {
   const eff = computeNavEffects(save.party);
   document.getElementById("preflight-star").textContent = `${star.icon} ${star.name} へ`;
   const list = document.getElementById("preflight-list");
-  list.innerHTML = eff.labels.length
+  const navHtml = eff.labels.length
     ? eff.labels.map(l => `
         <div class="pf-row">
           <span class="pf-face">${faceHTML(l.face, `characters/${l.img}`)}</span>
@@ -1055,6 +1267,7 @@ function showPreflight(star) {
           <span class="pf-eff">${l.label}</span>
         </div>`).join("")
     : `<div class="pf-row"><span class="pf-eff">特別な効果なし</span></div>`;
+  list.innerHTML = navHtml + renderSynergyPanel(eff.synergy);
   show("preflight");
 }
 
@@ -2119,6 +2332,7 @@ const BT = {
   enemy: null, enemyHp: 0, enemyMaxHp: 0, party: [],
   turnLock: false, won: false,
   enemyAtkMul: 1, enemyDebuffTurns: 0, guardTurns: 0, barrier: 0, nextAttackMul: 1,
+  synergy: null,
 };
 
 // ラスボス最終演出フラグ（Part2の土台）
@@ -2141,15 +2355,18 @@ function startBattle(star) {
   BT.enemyAtkMul = 1;
   BT.enemyDebuffTurns = 0;
   BT.guardTurns = 0;
-  BT.barrier = 0;
+  BT.synergy = computeSynergies(save.party);
+  BT.barrier = BT.synergy.effects.battleBarrier;
   BT.nextAttackMul = 1;
   // 航行ボーナス：味方HP +1（強化時 +2）
   const allyHpUp = stageBonus && stageBonus.type === "allyHp";
   const hpPlus = allyHpUp ? (boosted ? 2 : 1) : 0;
   BT.party = save.party.slice(0, 4).map(id => {
     const a = ALLIES.find(x => x.id === id);
-    return buildBattleMember(a, hpPlus);
+    return buildBattleMember(a, hpPlus, BT.synergy);
   });
+  recordPartyVisit(star);
+  persist();
 
   // 敵描画＋系統・ギミック・ボス表示
   document.getElementById("enemy-name").textContent = def.name;
@@ -2172,6 +2389,9 @@ function startBattle(star) {
   if (stageBonus && ["enemyHp", "allyHp", "scoutRate"].includes(stageBonus.type)) {
     log(`✦ 航行ボーナス：${stageBonus.label}${stageBonus.boosted ? "（強化）" : ""}`);
   }
+  if (BT.synergy.active.length) {
+    log(`✦ シナジー：${BT.synergy.active.map(s => s.name).join(" / ")}`);
+  }
   renderBattleCommands("main");
   setCommands(true);
 
@@ -2181,13 +2401,14 @@ function startBattle(star) {
   startBattleScene();
 }
 
-function buildBattleMember(a, hpPlus = 0) {
+function buildBattleMember(a, hpPlus = 0, synergy = computeSynergies(save.party)) {
   const passive = a.passive || {};
-  const maxHp = a.hp + (passive.hp || 0) + hpPlus;
+  const lowRare = a.rarity <= LOW_RARITY_MAX || (a.tags || []).includes("低レア");
+  const maxHp = Math.round((a.hp + (passive.hp || 0) + hpPlus) * (lowRare ? synergy.effects.lowRarityHpMul : 1));
   return {
     ...a,
     atk: a.atk + (passive.atk || 0),
-    def: a.def + (passive.def || 0),
+    def: Math.round((a.def + (passive.def || 0)) * synergy.effects.defMul),
     spd: a.spd + (passive.spd || 0),
     critRate: passive.crit || 0,
     curHp: maxHp,
@@ -2364,9 +2585,10 @@ async function useMemberSkill(m) {
 // 仲間が順番に攻撃
 async function attackRound(multiplier, label) {
   BT.turnLock = true; setCommands(false);
+  const normalMul = multiplier * ((BT.synergy && BT.synergy.effects.normalAtkMul) || 1);
   for (const m of BT.party) {
     if (m.dead) continue;
-    const { dmg, crit, buffed } = rollMemberDamage(m, multiplier);
+    const { dmg, crit, buffed } = rollMemberDamage(m, normalMul);
     await applyEnemyDamage(m, dmg, label, crit, buffed);
     if (BT.enemyHp <= 0) { return enemyDefeated(); }
   }
@@ -2377,6 +2599,16 @@ async function enemyTurn() {
   const alive = BT.party.filter(m => !m.dead);
   if (alive.length === 0) return; // 念のため
   const target = alive[Math.floor(Math.random() * alive.length)];
+  if (BT.synergy && Math.random() < BT.synergy.effects.evasion) {
+    log(`${target.name}は シナジーで回避！`);
+    renderParty();
+    await wait(BATTLE_TURN_WAIT_MS);
+    tickBattleEffects();
+    applyTurnSynergyHeal();
+    renderParty();
+    BT.turnLock = false; renderBattleCommands("main"); setCommands(true);
+    return;
+  }
   const raw = Math.max(1, Math.round((BT.enemy.atk + randInt(-2, 2)) * BT.enemyAtkMul));
   const mitigation = Math.floor((target.def || 0) / 3) + (BT.guardTurns > 0 ? 3 : 0);
   let dmg = Math.max(0, raw - mitigation);
@@ -2391,8 +2623,36 @@ async function enemyTurn() {
   renderParty();
   await wait(BATTLE_TURN_WAIT_MS);
   tickBattleEffects();
+  applyTurnSynergyHeal();
+  renderParty();
   if (BT.party.every(m => m.dead)) return partyWipe();
   BT.turnLock = false; renderBattleCommands("main"); setCommands(true);
+}
+
+function applyTurnSynergyHeal() {
+  const amount = BT.synergy?.effects.turnHeal || 0;
+  if (!amount) return;
+  const target = BT.party
+    .filter(m => !m.dead && m.curHp < m.maxHp)
+    .sort((a, b) => (a.curHp / a.maxHp) - (b.curHp / b.maxHp))[0];
+  if (!target) return;
+  target.curHp = Math.min(target.maxHp, target.curHp + amount);
+  log(`回復シナジー：${target.name} +${amount}`);
+}
+
+function applyPostBattleSynergyHeal() {
+  const amount = BT.synergy?.effects.postBattleHeal || 0;
+  if (!amount) return;
+  let healed = 0;
+  BT.party.forEach(m => {
+    if (m.dead || m.curHp >= m.maxHp) return;
+    m.curHp = Math.min(m.maxHp, m.curHp + amount);
+    healed++;
+  });
+  if (healed) {
+    renderParty();
+    log(`星霊シナジー：味方${healed}人を少し回復`);
+  }
 }
 
 function tickBattleEffects() {
@@ -2452,6 +2712,23 @@ async function doRun() {
   }
 }
 
+function recordPartyVisit(star = currentStar) {
+  const label = starRecordLabel(star);
+  save.party.slice(0, 4).forEach(id => {
+    const stat = dexStat(id);
+    if (label) stat.lastPartyStar = label;
+  });
+}
+
+function recordClearMembers(star = currentStar) {
+  const label = starRecordLabel(star);
+  save.party.slice(0, 4).forEach(id => {
+    const stat = dexStat(id);
+    stat.clearMemberCount++;
+    if (label) stat.lastPartyStar = label;
+  });
+}
+
 function enemyDefeated() {
   setEnemyHpBar();
   // ラスボス戦：通常勝利ではなく「最終フェーズ」へ（仮）
@@ -2463,6 +2740,8 @@ function enemyDefeated() {
   }
   log(`${BT.enemy.name}を たおした！`);
   BT.won = true;
+  recordClearMembers(currentStar);
+  applyPostBattleSynergyHeal();
   // クリア登録
   if (!save.cleared.includes(currentStar.id)) save.cleared.push(currentStar.id);
   persist();
@@ -2726,17 +3005,36 @@ function pickCandidate() {
 // レア度から必要クリスタル・成功率を取得（航行ボーナスで成功率+5%）
 function scoutInfo(ally) {
   const r = RARITY[ally.rarity] || RARITY[2];
+  const synergy = computeSynergies(save.party);
+  const lowRareDiscount = ally.rarity <= LOW_RARITY_MAX || (ally.tags || []).includes("低レア");
+  const cost = lowRareDiscount ? Math.max(5, Math.round(r.cost * 0.8)) : r.cost;
   let rate = r.baseRate;
   const hasBonus = stageBonus && stageBonus.type === "scoutRate";
   if (hasBonus) rate += stageBonus.boosted ? 0.08 : 0.05; // ミドリ星人で強化
+  rate += synergy.effects.scoutRate;
   const beacon = itemCount("scoutBeacon") > 0;
   if (beacon) rate += 0.10;
-  return { cost: r.cost, rate: Math.min(0.99, rate), boosted: !!hasBonus, beacon };
+  return {
+    cost,
+    rate: Math.min(0.99, rate),
+    boosted: !!hasBonus,
+    beacon,
+    synergyScout: synergy.effects.scoutRate,
+    lowRareDiscount,
+  };
 }
 
 // 図鑑：発見済み登録
-function markDiscovered(id) {
-  if (!save.discovered.includes(id)) { save.discovered.push(id); persist(); }
+function markDiscovered(id, { countEncounter = true, doPersist = true } = {}) {
+  if (!save.discovered.includes(id)) save.discovered.push(id);
+  const stat = dexStat(id);
+  const starLabel = starRecordLabel();
+  if (countEncounter) stat.foundCount++;
+  if (starLabel) {
+    if (!stat.firstMetStar) stat.firstMetStar = starLabel;
+    stat.lastMetStar = starLabel;
+  }
+  if (doPersist) persist();
 }
 
 // 戦闘勝利後：仲間候補と出会う → スカウト画面へ
@@ -2753,21 +3051,23 @@ function offerScout() {
 function showScoutOffer(ally) {
   show("scout");
   document.getElementById("scout-title").textContent = "仲間候補があらわれた！";
-  const { cost, rate, boosted, beacon } = scoutInfo(ally);
+  const { cost, rate, boosted, beacon, synergyScout, lowRareDiscount } = scoutInfo(ally);
   const enough = save.crystals >= cost;
   const replaceTarget = !save.party.includes(ally.id) && save.party.length >= 4 ? allyById(save.party[save.party.length - 1]) : null;
   document.getElementById("scout-result").innerHTML = `
     <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
     <div class="cand-name">${ally.name}</div>
     <div class="cand-rarity">${"★".repeat(ally.rarity)}</div>
-    <div class="cand-tag">${ally.tag}</div>
+    <div class="cand-tag">${ally.tags.map(tag => `<span class="tag-chip">${tag}</span>`).join("")}</div>
     <div class="cand-stats">
       <div class="cand-stat"><div class="k">必要💎</div><div class="v cost ${enough ? "" : "short"}">${cost}</div></div>
-      <div class="cand-stat"><div class="k">成功率</div><div class="v rate">${Math.round(rate * 100)}%${boosted ? " ↑" : ""}</div></div>
+      <div class="cand-stat"><div class="k">成功率</div><div class="v rate">${Math.round(rate * 100)}%${(boosted || synergyScout) ? " ↑" : ""}</div></div>
       <div class="cand-stat"><div class="k">所持💎</div><div class="v">${save.crystals}</div></div>
     </div>
     ${enough ? "" : `<div class="scout-sub" style="color:var(--danger)">クリスタルが足りない…</div>`}
     ${beacon ? `<div class="scout-sub" style="color:var(--ok)">スカウトビーコン適用中：成功率 +10%</div>` : ""}
+    ${synergyScout ? `<div class="scout-sub" style="color:var(--ok)">はぐれものの絆：成功率 +${Math.round(synergyScout * 100)}%</div>` : ""}
+    ${lowRareDiscount ? `<div class="scout-sub" style="color:var(--gold)">低レア救済：スカウト費用を割引</div>` : ""}
     ${replaceTarget ? `<div class="scout-sub scout-replace-note">成功時は4人目の ${replaceTarget.name} と入れ替え</div>` : ""}
   `;
   document.getElementById("scout-actions").innerHTML = `
@@ -2786,9 +3086,11 @@ function attemptScout() {
   if (Math.random() < rate) {
     save.crystals -= cost;          // 成功時のみ消費
     const recruitResult = recruit(ally); // パーティ加入＋「加入済み」記録
+    addDexStat(ally.id, "scoutSuccessCount", 1);
     showScoutResult(ally, "success", cost, recruitResult, beacon);
   } else {
     // 失敗：仲間にならない／消費なし（MVP）／図鑑は発見済みのまま
+    addDexStat(ally.id, "scoutFailCount", 1);
     showScoutResult(ally, "fail", 0, {}, beacon);
   }
   persist();
@@ -2798,7 +3100,7 @@ function attemptScout() {
 function recruit(ally) {
   const result = { addedToParty: false, alreadyInParty: false, replaced: null };
   if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
-  markDiscovered(ally.id);
+  markDiscovered(ally.id, { countEncounter: false, doPersist: false });
   if (save.party.includes(ally.id)) {
     result.alreadyInParty = true;
     return result;
@@ -2811,6 +3113,7 @@ function recruit(ally) {
     save.party[save.party.length - 1] = ally.id; // 入れ替え
     result.addedToParty = true;
     result.replaced = allyById(replacedId);
+    addDexStat(replacedId, "partedCount", 1);
   }
   return result;
 }
@@ -2842,6 +3145,10 @@ function showScoutResult(ally, kind, cost, recruitResult = {}, beacon = false) {
 
 // 「スルー」：消費なし・仲間にならない・図鑑は発見済みのまま
 function skipScout(ally) {
+  if (ally) {
+    addDexStat(ally.id, "skipCount", 1);
+    persist();
+  }
   document.getElementById("scout-title").textContent = "スルー";
   document.getElementById("scout-result").innerHTML = `
     <div class="scout-face">${ally ? faceHTML(ally.face, `characters/${ally.img}`) : "👋"}</div>
@@ -2887,14 +3194,17 @@ function renderDex() {
       : (!found ? "" : joined
         ? `<div class="dc-badge joined">加入済み</div>`
         : `<div class="dc-badge found">発見済み</div>`);
+    const stat = found ? dexStat(a.id) : null;
     cell.innerHTML = `
       <div class="dc-face">${found ? faceHTML(a.face, `characters/${a.img}`) : "❔"}</div>
-      <div class="dc-rarity">★${a.rarity}</div>
+      ${found ? `<div class="dc-rarity">★${a.rarity}</div>` : `<div class="dc-rarity dc-secret">---</div>`}
       <div class="dc-name">${found ? a.name : "？？？"}</div>
       <div class="dc-no">No.${String(i + 1).padStart(2, "0")}</div>
+      ${found ? `<div class="dc-tags">${a.tags.map(tag => `<span>${tag}</span>`).join("")}</div>` : ""}
+      ${found ? `<div class="dc-statline">発見 ${stat.foundCount} / 成功 ${stat.scoutSuccessCount}</div>` : ""}
       ${badge}
     `;
-    if (found) cell.title = `${a.name}（★${a.rarity}）\n${a.setting}\n得意：${a.skill}`;
+    if (found) cell.title = `${a.name}（★${a.rarity}）\nタグ：${a.tags.join(" / ")}\n${a.setting}\n得意：${a.skill}\n発見：${stat.foundCount} / 成功：${stat.scoutSuccessCount}`;
     grid.appendChild(cell);
   });
 }
@@ -2938,11 +3248,20 @@ window.GAME = {
   setBonus: (type) => { stageBonus = (MISSIONS.find(m => m.bonus.type === type) || {}).bonus || null; return stageBonus; },
   get bonus() { return stageBonus; },
   get sh() { return SH; },
+  synergy: () => computeSynergies(save.party),
+  dexStats: () => { ensureDexStats(save); return save.dexStats; },
+  addDexStat: (id, key, amount = 1) => { const stat = addDexStat(id, key, amount); persist(); return stat; },
   get heroes() { return heroCount(); },                 // 現在の仲間収集数（No.1〜99）
   heroNeeded: () => Math.max(0, REQUIRED_HEROES - heroCount()),
   // デバッグ：No.1〜n を図鑑「発見済み」に登録（99人ゲート確認用）
   discoverHeroes: (n = REQUIRED_HEROES) => {
-    for (let k = 1; k <= n; k++) { const id = "c" + k; if (!save.discovered.includes(id)) save.discovered.push(id); }
+    for (let k = 1; k <= n; k++) {
+      const id = "c" + k;
+      if (!allyById(id)) continue;
+      if (!save.discovered.includes(id)) save.discovered.push(id);
+      const stat = dexStat(id);
+      if (stat.foundCount <= 0) stat.foundCount = 1;
+    }
     persist();
     return heroCount();
   },
