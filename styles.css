@@ -375,6 +375,19 @@ html, body {
 .pf-eff { font-size: 13px; color: var(--ok); flex: 1; }
 .preflight-inner .btn-primary { width: 220px; }
 
+/* ===== 到着演出 ===== */
+#screen-arrival {
+  background: radial-gradient(circle at 50% 40%, #1a1438, #05030f);
+  align-items: center; justify-content: center; cursor: pointer;
+}
+.arrival-inner { text-align: center; padding: 24px; }
+.arrival-star { font-size: 30px; font-weight: 800; color: var(--accent); letter-spacing: .06em; text-shadow: 0 0 20px rgba(110,200,255,.5); }
+.arrival-msg { font-size: 22px; font-weight: 800; color: #fff; margin-top: 24px; min-height: 30px; text-shadow: 0 0 16px rgba(180,160,255,.5); }
+.arrival-msg.show { animation: arrivalIn .45s ease; }
+@keyframes arrivalIn { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+.arrival-hint { margin-top: 40px; font-size: 12px; color: #678; animation: blink 1.5s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+
 /* ===== シューティング結果 ===== */
 #screen-result { background: radial-gradient(circle at 50% 35%, #16183a, #05030f); align-items: center; justify-content: center; }
 .result-inner { text-align: center; padding: 24px; width: 100%; max-width: 360px; }

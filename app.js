@@ -1173,9 +1173,44 @@ function showResult({ cleared, missionOk, reward, rank, boosted }) {
 
 document.querySelector("#screen-result").addEventListener("click", (e) => {
   if (e.target.dataset.action !== "result-next") return;
-  if (resultCleared) startBattle(currentStar);   // 到達 → 戦闘へ（ボーナス反映）
-  else { refreshCrystals(); show("worldmap"); }   // 墜落 → ワールドマップへ
+  if (resultCleared) playArrival(currentStar);    // 到達 → 到着演出 → 戦闘へ
+  else { refreshCrystals(); show("worldmap"); }    // 墜落 → ワールドマップへ
 });
+
+// -------------------------------------------------------------
+// 到着演出（航行→RPG戦闘）。CSSフェードで短いメッセージを順に表示
+// -------------------------------------------------------------
+let arrivalTimer = null, arrivalStar = null;
+function playArrival(star) {
+  arrivalStar = star;
+  show("arrival");
+  const enemy = ENEMIES[star.enemy];
+  document.getElementById("arrival-star").textContent = `${star.icon} ${star.name}`;
+  const msgs = [
+    "目的地に到着！",
+    `${star.name} に降下します…`,
+    "敵影を確認！",
+    `${star.boss ? "【ボス】" : ""}${enemy.name} が あらわれた！`,
+  ];
+  const el = document.getElementById("arrival-msg");
+  let i = 0;
+  const step = () => {
+    if (i >= msgs.length) { finishArrival(); return; }
+    el.textContent = msgs[i];
+    el.classList.remove("show"); void el.offsetWidth; el.classList.add("show"); // アニメ再生
+    i++;
+    arrivalTimer = setTimeout(step, 1050);
+  };
+  step();
+}
+function finishArrival() {
+  if (!arrivalStar) return;        // 二重実行ガード
+  clearTimeout(arrivalTimer);
+  const s = arrivalStar; arrivalStar = null;
+  startBattle(s);
+}
+// タップでスキップ
+document.querySelector("#screen-arrival").addEventListener("click", finishArrival);
 
 // -------------------------------------------------------------
 // RPG戦闘
@@ -1552,6 +1587,7 @@ window.GAME = {
   goShooting: (i = 0) => startStage(STARS[i]),
   goBattle: (i = 0) => { currentStar = STARS[i]; startBattle(STARS[i]); },
   winShooting: () => { if (SH.running) { SH.hp = MAX_HP; SH.startT = performance.now() - (STAGE_TIME + 1) * 1000; } },
+  endShooting: () => { if (SH.running) { SH.hp = MAX_HP; endShooting(); } }, // 結果画面へ即遷移（デバッグ）
   completeMission: () => { if (SH.mission) { SH.missionDone = true; SH.missionFailed = false; updateMissionHUD(); } },
   setBonus: (type) => { stageBonus = (MISSIONS.find(m => m.bonus.type === type) || {}).bonus || null; return stageBonus; },
   get bonus() { return stageBonus; },
