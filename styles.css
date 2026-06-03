@@ -225,7 +225,7 @@ html, body {
 .hero-area {
   position: relative;
   width: min(100%, 380px);
-  height: 250px;
+  height: 262px;
   margin: 14px auto 12px;
 }
 .hero-compass {
@@ -1375,7 +1375,7 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 .game-logo { position: relative; }
 .game-logo .asset-img { display: none; }
 .game-logo.has-img .logo-text { display: none; }
-.game-logo.has-img .asset-img { display: block; position: static; width: 100%; max-width: 380px; max-height: 280px; object-fit: contain; margin: 2px auto 0; }
+.game-logo.has-img .asset-img { display: block; position: static; width: 100%; max-width: 420px; max-height: 340px; object-fit: contain; margin: 2px auto 0; }
 /* 飛行船PNG（タイトル） */
 .ship-character.has-img > :not(.asset-img) { opacity: 0; }
 .ship-character.has-img .asset-img { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
@@ -1394,10 +1394,10 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 }
 .ship-character.has-img .ship-flag { display: none; }
 
-/* タイトルのキャラ：PNG表示時は大きめに（船・主人公とも約2倍）。多少重なってもOK */
-.ship-character.has-img { width: 290px; height: 184px; left: -8px; bottom: 18px; z-index: 2; }
-.weak-hero.has-img { width: 168px; height: 214px; right: -6px; bottom: 4px; opacity: 1; z-index: 3; }
+/* タイトルのキャラ：PNGは縦長(2:3)。縦長ボックスで大きく、左右に並べて重ねない */
+.ship-character.has-img { width: 168px; height: 252px; left: 6px; bottom: 4px; border-radius: 0; z-index: 2; }
+.weak-hero.has-img { width: 168px; height: 252px; right: 6px; bottom: 4px; opacity: 1; z-index: 2; }
 @media (max-height: 720px) {
-  .ship-character.has-img { width: 236px; height: 150px; }
-  .weak-hero.has-img { width: 134px; height: 172px; }
+  .ship-character.has-img { width: 132px; height: 198px; }
+  .weak-hero.has-img { width: 132px; height: 198px; }
 }
