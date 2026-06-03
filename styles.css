@@ -1396,10 +1396,10 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 }
 .ship-character.has-img .ship-flag { display: none; }
 
-/* タイトルの飛行船PNG（茶色）は非表示にする（指示：消す） */
-#screen-title .ship-character { display: none; }
-/* タイトルの主人公：中央に大きく配置（縦長2:3） */
-.weak-hero.has-img { left: 50%; right: auto; transform: translateX(-50%); width: 188px; height: 256px; bottom: 0; opacity: 1; z-index: 2; }
+/* タイトル：飛行船(左)＋主人公(右)を縦長2:3で横並び（重ねない） */
+.ship-character.has-img { left: 8px; right: auto; bottom: 4px; width: 170px; height: 250px; border-radius: 0; transform: none; z-index: 2; }
+.weak-hero.has-img { left: auto; right: 8px; bottom: 4px; width: 170px; height: 250px; transform: none; opacity: 1; z-index: 2; }
 @media (max-height: 720px) {
-  .weak-hero.has-img { width: 150px; height: 205px; }
+  .ship-character.has-img { width: 136px; height: 200px; }
+  .weak-hero.has-img { width: 136px; height: 200px; }
 }
