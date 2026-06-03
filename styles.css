@@ -1375,7 +1375,9 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 .game-logo { position: relative; }
 .game-logo .asset-img { display: none; }
 .game-logo.has-img .logo-text { display: none; }
-.game-logo.has-img .asset-img { display: block; position: static; width: 100%; max-width: 420px; max-height: 340px; object-fit: contain; margin: 2px auto 0; }
+.game-logo.has-img { overflow: hidden; width: 100%; }
+/* 縦長ロゴPNGの上下余白を切り、ロゴ帯を大きく見せる（2倍感） */
+.game-logo.has-img .asset-img { display: block; width: 100%; max-width: 420px; height: 200px; object-fit: cover; object-position: center 37%; margin: 0 auto; }
 /* 飛行船PNG（タイトル） */
 .ship-character.has-img > :not(.asset-img) { opacity: 0; }
 .ship-character.has-img .asset-img { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
