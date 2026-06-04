@@ -261,11 +261,17 @@
     <!-- ============ ピノの戦闘前会話（ステージ1） ============ -->
     <section id="screen-pino" class="screen">
       <div class="pino-bg"></div>
+      <div class="pino-scanline"></div>
       <button class="pino-skip" data-action="pino-skip">スキップ</button>
       <div class="pino-inner">
-        <div class="pino-face">🤖</div>
+        <div class="pino-status">航行ログ / 戦闘前通信</div>
+        <div class="pino-portrait">
+          <div class="pino-face" id="pino-face">🤖</div>
+        </div>
         <div class="pino-name">まいごロボ・ピノ</div>
+        <div class="pino-brief" id="pino-brief"></div>
         <div class="pino-line" id="pino-line"></div>
+        <div class="pino-progress" id="pino-progress"></div>
       </div>
       <button class="pino-next" data-action="pino-next">次へ</button>
     </section>

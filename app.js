@@ -2608,6 +2608,8 @@ function playPinoScene(star, lines) {
   pinoLines = lines || PINO_PRE_BATTLE_LINES;
   pinoLineIndex = 0;
   show("pino");
+  const face = document.getElementById("pino-face");
+  if (face) face.innerHTML = faceHTML("🤖", "characters/c1");
   renderPinoLine();
 }
 
@@ -2619,6 +2621,28 @@ function renderPinoLine() {
   el.classList.add("show");
   document.querySelector('[data-action="pino-next"]').textContent =
     pinoLineIndex >= pinoLines.length - 1 ? "戦闘へ" : "次へ";
+  renderPinoBrief();
+  renderPinoProgress();
+}
+
+function renderPinoBrief() {
+  const el = document.getElementById("pino-brief");
+  if (!el || !pinoSceneStar) return;
+  const enemy = ENEMIES[pinoSceneStar.enemy];
+  const danger = "★".repeat(pinoSceneStar.danger || 1) + "☆".repeat(5 - (pinoSceneStar.danger || 1));
+  el.innerHTML = `
+    <div><span>目的地</span><b>${pinoSceneStar.name}</b></div>
+    <div><span>敵影</span><b>${enemy?.name || "不明"}</b></div>
+    <div><span>危険度</span><b class="pino-danger">${danger}</b></div>
+  `;
+}
+
+function renderPinoProgress() {
+  const el = document.getElementById("pino-progress");
+  if (!el) return;
+  el.innerHTML = pinoLines.map((_, i) =>
+    `<span class="${i === pinoLineIndex ? "active" : ""}"></span>`
+  ).join("");
 }
 
 function advancePinoScene() {
@@ -3713,15 +3737,20 @@ function renderDex() {
       ? `<div class="dc-badge joined">${special ? "船枠・加入済み" : "加入済み"}</div>`
       : `<div class="dc-badge found">${special ? "船枠" : "発見済み"}</div>`;
     const stat = found ? dexStat(a.id) : null;
+    const tagsHtml = found ? `<div class="dc-tags">${a.tags.map(tag => `<span>${tag}</span>`).join("")}</div>` : "";
     cell.innerHTML = `
+      <div class="dc-head">
+        <span class="dc-no">No.${String(i + 1).padStart(2, "0")}</span>
+        ${found ? `<span class="dc-rarity">★${a.rarity}</span>` : `<span class="dc-rarity dc-secret">---</span>`}
+      </div>
       <div class="dc-face">${found ? faceHTML(a.face, allyImagePath(a)) : "❔"}</div>
-      ${found ? `<div class="dc-rarity">★${a.rarity}</div>` : `<div class="dc-rarity dc-secret">---</div>`}
       <div class="dc-name">${found ? a.name : "？？？"}</div>
-      <div class="dc-no">No.${String(i + 1).padStart(2, "0")}</div>
-      ${found ? `<div class="dc-tags">${a.tags.map(tag => `<span>${tag}</span>`).join("")}</div>` : ""}
-      ${found ? `<div class="dc-statline">ロール ${a.roleLabel}</div>` : ""}
-      ${found ? `<div class="dc-statline">発見 ${stat.foundCount} / 成功 ${stat.scoutSuccessCount}</div>` : ""}
-      ${badge}
+      ${found ? `<div class="dc-role">${a.roleLabel}</div>` : `<div class="dc-role unknown-role">未発見</div>`}
+      ${tagsHtml}
+      <div class="dc-bottom">
+        ${found ? `<div class="dc-statline">発見 ${stat.foundCount} / 成功 ${stat.scoutSuccessCount}</div>` : `<div class="dc-statline">探索で発見しよう</div>`}
+        ${badge}
+      </div>
     `;
     if (found) cell.title = `${a.name}（★${a.rarity} / ${a.roleLabel}）\nタグ：${a.tags.join(" / ")}\n${a.setting}\n得意：${a.skill}\n発見：${stat.foundCount} / 成功：${stat.scoutSuccessCount}`;
     grid.appendChild(cell);
