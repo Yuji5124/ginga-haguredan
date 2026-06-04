@@ -150,7 +150,12 @@ function createThreeFallback() {
 // データ定義
 // -------------------------------------------------------------
 
-// レア度ごとのスカウト設定（必要クリスタル / 基本成功率）。レア度1〜10
+const TOTAL_CHARACTERS = 60;
+const ALLY_IMAGE_IMPLEMENTED_COUNT = 20;
+const FINAL_BOSS_UNLOCK_COUNT = 50;
+const MAX_ALLY_RARITY = 10;
+
+// レア度ごとのスカウト設定（必要クリスタル / 基本成功率）
 const RARITY = {
   1:  { cost: 10,  baseRate: 0.85 },
   2:  { cost: 14,  baseRate: 0.75 },
@@ -186,110 +191,108 @@ function voiceForRarity(r) {
   return       { ok: "我が力、貸し与えよう",           ng: "汝には まだ早い",         bye: "星々の彼方で 再び会おう" };
 }
 
-// 仲間100人（作り直し版）。[No, 名前, 絵文字, 見た目・設定, 得意なこと]
-// レア度は No から自動（1〜10：各10人）。HP/攻撃・航行ボーナス・ボイスも自動算出
-const RAW_ALLIES = [
-  [1,"まいごロボ・ピノ","🤖","古い案内ロボ。道をよく間違える","たまに宝箱の場所を当てる"],
-  [2,"ほしクズくん","✨","星のかけらみたいな小さい生物","敵に小ダメージ＋まれに目くらまし"],
-  [3,"宇宙バイトのミナ","🧑","銀河コンビニで働いていた少女","アイテム使用効果アップ"],
-  [4,"ねむりネジ","🔩","すぐ電源が落ちる小型ロボ","眠っている間だけ防御力アップ"],
-  [5,"プカプカさん","👨‍🚀","宇宙服だけが漂っている謎の人","攻撃をたまに避ける"],
-  [6,"チリトリ星人","👽","掃除好きの小さい宇宙人","状態異常を少し回復"],
-  [7,"ヨワシ","🐟","弱そうな宇宙魚","HPが少ない時だけ回避率アップ"],
-  [8,"ボタン係ポチ","🔘","ボタンを押すためだけのロボ","ランダムで何かが起きる"],
-  [9,"ひびわれ卵モン","🥚","割れかけの卵型モンスター","低確率で大きく跳ねて攻撃"],
-  [10,"カサネコ","🐈","傘を持った宇宙猫","雨・水系ステージで少し強い"],
-  [11,"レシート博士","🧾","何でもレシートに記録する老人","戦闘後にもらえるお金が少し増える"],
-  [12,"ころがり丸","⚙️","丸いメカ生物","体当たり。自分も少しダメージ"],
-  [13,"宇宙郵便ペリカン","🕊️","星から星へ手紙を届ける鳥","控え仲間に経験値を少し渡す"],
-  [14,"さびた騎士ドン","🛡️","鎧がサビた元騎士","味方をかばう"],
-  [15,"プチコック","👨‍🍳","銀河食堂の見習い料理人","戦闘中に小回復料理を作る"],
-  [16,"わすれんぼAI","💭","記憶容量が少ないAI","敵の技を1つだけ覚えることがある"],
-  [17,"パタパタ電池","🔋","羽の生えた乾電池","味方1人のスキル回数を少し回復"],
-  [18,"すなぼこり兄弟","🏜️","砂でできた双子","敵の命中率を下げる"],
-  [19,"ガムテープマン","🩹","壊れたものを何でも貼る人","ロボ系の仲間を少し回復"],
-  [20,"ミニアンテナ","📡","小さな通信生物","敵の次の行動をたまに予測"],
-  [21,"はぐれ整備士ニコ","🔧","どの船にも乗せてもらえなかった整備士","飛行系・ロボ系を強化"],
-  [22,"ドリル小僧ガリ","⛏️","頭にドリルがある少年","防御の高い敵に強い"],
-  [23,"月面うさぎモチ","🐇","月で餅をついていた宇宙うさぎ","敵をスタンさせる"],
-  [24,"ピクセル魔女ドット","👾","体がドット絵みたいな魔女","敵の能力を少しバグらせる"],
-  [25,"スモーク忍者ケムリ","🥷","いつも煙に包まれている忍者","回避支援"],
-  [26,"ジャンク犬ラフ","🐕","部品をくわえて走るメカ犬","戦闘後に素材を拾う"],
-  [27,"フライパン王子","🍳","フライパンを武器にする王子","反撃が得意"],
-  [28,"星くずアイドル・リリ","🎤","人気はないが一生懸命なアイドル","味方のやる気を上げる"],
-  [29,"タイヤ星人クル","🛞","タイヤ型の宇宙人","素早さが高い"],
-  [30,"ザコ将軍","🎖️","自分を強いと思っている弱い将軍","敵の注意を引きつける"],
-  [31,"ブリキ船長","🚢","小さなブリキ宇宙船の船長","味方全体の防御アップ"],
-  [32,"メテオ配達員ジン","☄️","隕石便を届ける配達員","先制攻撃しやすい"],
-  [33,"からくり姫ネネ","👸","古い宮殿から逃げた機械姫","自動回復"],
-  [34,"バブル医師ポワ","🫧","泡の中に住む医者","回復＋毒治療"],
-  [35,"黒ねじのガンマ","🌑","黒いネジ型ロボ","単体火力が高い"],
-  [36,"コイン占い師ルゥ","🪙","コインで未来を決める占い師","クリティカル率を操作"],
-  [37,"グラタン星人","🍲","熱々の皿に乗った宇宙人","火属性攻撃"],
-  [38,"フードの少年シロ","🧥","顔を隠した無口な少年","敵の強化を消す"],
-  [39,"ぷち重力くん","🌀","小さなブラックホールの子ども","敵の素早さを下げる"],
-  [40,"ネオンスケーター","🛹","宇宙道路を滑る少年","回避と連続攻撃"],
-  [41,"ラジオ侍ゼンパ","📻","電波を刀にする侍","雷属性攻撃"],
-  [42,"きつね技師コン","🦊","変装が得意な宇宙きつね","敵をだます"],
-  [43,"アイス配達娘ユキ","🧊","冷凍惑星から来た配達員","氷属性＋速度低下"],
-  [44,"片目のロボ兵ボイド","👁️","片目だけ光る旧型兵士","高命中射撃"],
-  [45,"オルゴール少女ミミ","🎶","胸にオルゴールがある少女","味方全体を少し回復"],
-  [46,"カミナリ太鼓ドン","🥁","雷太鼓を背負った大男","全体雷攻撃"],
-  [47,"シール魔法使いペタ","🏷️","魔法をシールにして貼る","味方に一時強化"],
-  [48,"宇宙漁師ハル","🎣","星雲で魚を釣る漁師","レア素材入手率アップ"],
-  [49,"ボロマントのカイ","🗡️","破れたマントの剣士","HPが低いほど強い"],
-  [50,"トランク博士","💼","トランクの中に研究所がある博士","ランダム発明品を使う"],
-  [51,"スター消防士レン","🧯","星の火事を消す消防士","火属性ダメージを軽減"],
-  [52,"ホログラム姉妹","👯","実体があるようでない双子","分身で攻撃回避"],
-  [53,"銀河薬売りモンド","🧪","あやしい薬を売る旅人","強回復だが副作用あり"],
-  [54,"コスモ大工ゲン","🔨","宇宙船を直す大工","防御バリアを作る"],
-  [55,"ロケット僧サン","🧘","背中にロケットを背負った僧","回復＋素早さアップ"],
-  [56,"ゼリー騎士プルン","🍮","ぷるぷるの鎧騎士","物理攻撃に強い"],
-  [57,"ビーム書道家スミ","🖌️","光で文字を書く書道家","敵全体に封印効果"],
-  [58,"パラボラ少女エコ","🛰️","大きなアンテナを持つ少女","敵のスキルを反射することがある"],
-  [59,"砂時計ロボ・チク","⏳","時間管理ロボ","ターン順を少し操作"],
-  [60,"スターモグラ隊長","🦡","星の地下を掘る隊長","防御無視攻撃"],
-  [61,"赤マフラーのルカ","🧣","宇宙を歩いて渡る少年","高回避・高火力"],
-  [62,"鉄塔ロボ・タワン","🗼","鉄塔みたいに巨大なロボ","味方全体を守る"],
-  [63,"彗星ピエロ・ラフ","🤡","笑いながら隕石に乗る道化師","ランダム超効果"],
-  [64,"星雲剣士ラグナ","⚔️","星雲から来た剣士","全体斬撃"],
-  [65,"ダークナース・ノア","💉","闇医者のような看護師","回復と呪いを両方使う"],
-  [66,"宇宙怪盗セブン","🎭","7つの星を盗んだ怪盗","レアアイテムを盗む"],
-  [67,"白い獣人ミロク","🐺","月光を浴びる獣人","連続攻撃"],
-  [68,"コアメイカー・リタ","⚛️","星の核を作る技師","味方の攻撃力を大きく上げる"],
-  [69,"逆さ博士","🙃","逆さまに浮く研究者","敵味方の能力変化を反転"],
-  [70,"ガラス竜リュカ","🐲","透明な体の小型竜","魔法攻撃に強い"],
-  [71,"旧銀河軍のアイン","🪖","かつて軍にいた脱走兵","指揮能力が高い"],
-  [72,"星を読む少女ノルン","🔮","未来の断片を見る少女","次ターンの結果を変える"],
-  [73,"宇宙墓守グレイ","🪦","滅んだ星の墓を守る存在","倒れた仲間の力を引き継ぐ"],
-  [74,"機械天使メル","👼","羽のあるロボット","全体回復＋防御"],
-  [75,"青炎のオルカ","🔥","青い炎をまとった戦士","火と水の複合攻撃"],
-  [76,"記録者ログ","📚","銀河の記憶を集める存在","戦闘データで強くなる"],
-  [77,"双子衛星ルル・ララ","🌗","2つの小さな衛星生命体","2回行動支援"],
-  [78,"黒箱の少年ノイズ","📦","記憶を失ったAI少年","敵の行動をコピー"],
-  [79,"星海の巫女セナ","🌌","星の海と会話できる巫女","全体補助が強い"],
-  [80,"銀河裁縫師イト","🧵","星の糸で服を縫う職人","防具強化・バリア"],
-  [81,"はぐれ剣王ギル","🤺","王になれなかった剣士","単体最強級の剣技"],
-  [82,"星喰いベビー","👶","星を食べる怪獣の赤ちゃん","戦闘が長いほど強くなる"],
-  [83,"クロック・ゼロ","🕰️","壊れた時間兵器","敵の行動を1回遅らせる"],
-  [84,"銀河魔女ステラ","🧙‍♀️","銀河の外から来た魔女","全体魔法が強い"],
-  [85,"太陽炉ゴウマ","☀️","胸に小さな太陽炉がある巨人","HPを削って大火力"],
-  [86,"アンドロイド・イヴァ","🦾","感情を学ぶ戦闘AI","敵の行動を学習して反撃"],
-  [87,"黒星騎士バル","🖤","黒い星の鎧を着た騎士","防御と反撃が強い"],
-  [88,"ミラクル商人ポル","🎩","奇跡を売る商人","低確率で戦況をひっくり返す"],
-  [89,"白銀竜コメット","🐉","彗星から生まれた竜","高火力・高素早さ"],
-  [90,"星屑賢者モル","🧙","星屑を集める小さな賢者","回復・攻撃・補助を万能に使う"],
-  [91,"はぐれ王ギン","👑","王冠だけ立派な小さい王様","味方が倒れるほど強くなる"],
-  [92,"ノヴァちゃん","💥","小さな超新星の子","一度だけ超火力爆発"],
-  [93,"アステラ","🌟","星の守護者","味方全体を復活させる"],
-  [94,"ブラックホールくん","🕳️","黒い丸顔の重力生物","敵全体を吸い込む"],
-  [95,"プロト・ワン","🤖","最初に作られたロボ","ロボ系仲間を大幅強化"],
-  [96,"エーテル姫","🧚","宇宙の気流に乗る姫","毎ターン全体回復"],
-  [97,"バグの神様グリッチ","🪲","世界のルールから外れた存在","敵の行動を無効化することがある"],
-  [98,"ラストコメット","💫","最後の彗星生命体","1戦に1回だけ超必殺"],
-  [99,"迷子の創造主コドモ","🧒","銀河を作ったかもしれない子ども","ランダムで奇跡を起こす"],
-  [100,"はぐれ飛行船オルカ号","🚀","4人乗れる小型飛行船。意思を持つ仲間","全体の回避・移動・支援。終盤で覚醒する"],
+// 仲間60人の正式カタログ。ID/名前/レア度/ロールはここを正とする
+const CHARACTER_CATALOG = [
+  { id: "c1", name: "ロボ太", rarity: 1, role: "balanced" },
+  { id: "c2", name: "ねこ船長", rarity: 1, role: "attacker" },
+  { id: "c3", name: "おばけ", rarity: 1, role: "trick" },
+  { id: "c4", name: "ミドリ星人", rarity: 1, role: "support" },
+  { id: "c5", name: "タコすけ", rarity: 1, role: "defender" },
+  { id: "c6", name: "コドラゴ", rarity: 1, role: "attacker" },
+  { id: "c7", name: "ポンコ", rarity: 1, role: "balanced" },
+  { id: "c8", name: "ミミズク星人", rarity: 1, role: "support" },
+  { id: "c9", name: "ノロリン", rarity: 1, role: "defender" },
+  { id: "c10", name: "ヒョロ丸", rarity: 1, role: "speed" },
+  { id: "c11", name: "まいごロボ・ピノ", rarity: 2, role: "support" },
+  { id: "c12", name: "ほしクズくん", rarity: 2, role: "trick" },
+  { id: "c13", name: "宇宙バイトのミナ", rarity: 2, role: "balanced" },
+  { id: "c14", name: "ねむりネジ", rarity: 2, role: "debuff" },
+  { id: "c15", name: "プカプカさん", rarity: 2, role: "support" },
+  { id: "c16", name: "チリトリ星人", rarity: 2, role: "cleaner" },
+  { id: "c17", name: "ヨワシ", rarity: 2, role: "weak" },
+  { id: "c18", name: "ボタン係ポチ", rarity: 2, role: "support" },
+  { id: "c19", name: "ひびわれ卵モン", rarity: 2, role: "growth" },
+  { id: "c20", name: "カサネコ", rarity: 2, role: "trick" },
+  { id: "c21", name: "ブリキ船長", rarity: 4, role: "defender" },
+  { id: "c22", name: "メテオ配達員ジン", rarity: 4, role: "speed" },
+  { id: "c23", name: "からくり姫ネネ", rarity: 4, role: "support" },
+  { id: "c24", name: "バブル医師ポワ", rarity: 4, role: "healer" },
+  { id: "c25", name: "黒ねじのガンマ", rarity: 4, role: "attacker" },
+  { id: "c26", name: "コイン占い師ルゥ", rarity: 4, role: "luck" },
+  { id: "c27", name: "グラタン星人", rarity: 4, role: "defender" },
+  { id: "c28", name: "フードの少年シロ", rarity: 4, role: "mystery" },
+  { id: "c29", name: "ぷち重力くん", rarity: 4, role: "debuff" },
+  { id: "c30", name: "ネオンスケーター", rarity: 4, role: "speed" },
+  { id: "c31", name: "スター消防士レン", rarity: 6, role: "defender" },
+  { id: "c32", name: "ホログラム姉妹", rarity: 6, role: "trick" },
+  { id: "c33", name: "銀河薬売りモンド", rarity: 6, role: "healer" },
+  { id: "c34", name: "コスモ大工ゲン", rarity: 6, role: "defender" },
+  { id: "c35", name: "ロケット僧サン", rarity: 6, role: "support" },
+  { id: "c36", name: "ゼリー騎士プルン", rarity: 6, role: "defender" },
+  { id: "c37", name: "ビーム書道家スミ", rarity: 6, role: "attacker" },
+  { id: "c38", name: "パラボラ少女エコ", rarity: 6, role: "support" },
+  { id: "c39", name: "砂時計ロボ・チク", rarity: 6, role: "time" },
+  { id: "c40", name: "スターモグラ隊長", rarity: 6, role: "attacker" },
+  { id: "c41", name: "旧銀河軍のアイン", rarity: 8, role: "attacker" },
+  { id: "c42", name: "星を読む少女ノルン", rarity: 8, role: "support" },
+  { id: "c43", name: "宇宙墓守グレイ", rarity: 8, role: "debuff" },
+  { id: "c44", name: "機械天使メル", rarity: 8, role: "healer" },
+  { id: "c45", name: "青炎のオルカ", rarity: 8, role: "attacker" },
+  { id: "c46", name: "記録者ログ", rarity: 8, role: "support" },
+  { id: "c47", name: "双子衛星ルル・ララ", rarity: 8, role: "trick" },
+  { id: "c48", name: "黒箱の少年ノイズ", rarity: 8, role: "mystery" },
+  { id: "c49", name: "星海の巫女セナ", rarity: 8, role: "healer" },
+  { id: "c50", name: "銀河裁縫師イト", rarity: 8, role: "support" },
+  { id: "c51", name: "はぐれ王ギン", rarity: 10, role: "leader" },
+  { id: "c52", name: "ノヴァちゃん", rarity: 10, role: "attacker" },
+  { id: "c53", name: "アステラ", rarity: 10, role: "support" },
+  { id: "c54", name: "ブラックホールくん", rarity: 10, role: "debuff" },
+  { id: "c55", name: "プロト・ワン", rarity: 10, role: "balanced" },
+  { id: "c56", name: "エーテル姫", rarity: 10, role: "healer" },
+  { id: "c57", name: "バグの神様グリッチ", rarity: 10, role: "trick" },
+  { id: "c58", name: "ラストコメット", rarity: 10, role: "attacker" },
+  { id: "c59", name: "迷子の創造主コドモ", rarity: 10, role: "creator" },
+  {
+    id: "c60",
+    name: "はぐれ飛行船オルカ号",
+    rarity: 10,
+    role: "ship",
+    description: "仲間たちを乗せて銀河を進む、はぐれ団の飛行船。",
+  },
 ];
+
+const CHARACTER_FACE_BY_ID = {
+  c1: "🤖", c2: "🐈", c3: "👻", c4: "👽", c5: "🐙", c6: "🐲", c7: "🔧", c8: "🦉", c9: "🐌", c10: "💨",
+  c11: "🤖", c12: "✨", c13: "🧑", c14: "🔩", c15: "👨‍🚀", c16: "👽", c17: "🐟", c18: "🔘", c19: "🥚", c20: "🐈",
+  c21: "🚢", c22: "☄️", c23: "👸", c24: "🫧", c25: "🌑", c26: "🪙", c27: "🍲", c28: "🧥", c29: "🌀", c30: "🛹",
+  c31: "🧯", c32: "👯", c33: "🧪", c34: "🔨", c35: "🧘", c36: "🍮", c37: "🖌️", c38: "🛰️", c39: "⏳", c40: "🦡",
+  c41: "🪖", c42: "🔮", c43: "🪦", c44: "👼", c45: "🔥", c46: "📚", c47: "🌗", c48: "📦", c49: "🌌", c50: "🧵",
+  c51: "👑", c52: "💥", c53: "🌟", c54: "🕳️", c55: "🤖", c56: "🧚", c57: "🪲", c58: "💫", c59: "🧒", c60: "🚀",
+};
+
+const ROLE_DEFS = {
+  balanced: { label: "バランス", setting: "攻守のバランスがよく、どの航路にもなじむ仲間", skill: "状況に合わせて攻撃と支援をこなす", tags: ["はぐれもの"] },
+  attacker: { label: "攻撃", setting: "正面から敵に向かう攻撃役", skill: "敵にダメージを与える", tags: ["攻撃"] },
+  trick: { label: "トリック", setting: "予想外の動きで敵のペースを乱す仲間", skill: "不思議な手で戦況を変える", tags: ["不思議"] },
+  support: { label: "支援", setting: "仲間を助け、航路を支えるサポート役", skill: "味方の行動を助ける", tags: ["はぐれもの"] },
+  defender: { label: "守り", setting: "打たれ強く、仲間を守る防御役", skill: "守りを固めて被害を減らす", tags: ["守り"] },
+  speed: { label: "スピード", setting: "素早い移動と先手が得意な仲間", skill: "先に動いて流れを作る", tags: ["攻撃"] },
+  debuff: { label: "妨害", setting: "敵の力や動きを鈍らせる妨害役", skill: "敵を弱らせる", tags: ["不思議"] },
+  cleaner: { label: "掃除", setting: "散らかった宇宙をきれいにする働き者", skill: "状態の乱れを整える", tags: ["回復"] },
+  weak: { label: "弱さ", setting: "弱そうだが、土壇場で意地を見せる仲間", skill: "ピンチの時にふんばる", tags: ["はぐれもの"] },
+  growth: { label: "成長", setting: "まだ未完成だが、大きく伸びる可能性がある仲間", skill: "戦いながら成長する", tags: ["動物"] },
+  healer: { label: "回復", setting: "傷ついた仲間を支える回復役", skill: "味方を回復する", tags: ["回復"] },
+  luck: { label: "幸運", setting: "運とひらめきで道を開く仲間", skill: "幸運でチャンスを作る", tags: ["不思議"] },
+  mystery: { label: "謎", setting: "正体のつかめない不思議な仲間", skill: "謎の力で状況を動かす", tags: ["不思議"] },
+  time: { label: "時間", setting: "時間の流れに敏感な仲間", skill: "行動順やタイミングを支える", tags: ["機械", "不思議"] },
+  leader: { label: "リーダー", setting: "仲間を束ねる存在感を持つ仲間", skill: "味方を導いて力を引き出す", tags: ["はぐれもの", "守り"] },
+  creator: { label: "創造", setting: "銀河の仕組みに近いところへ触れている仲間", skill: "不思議な奇跡を起こす", tags: ["精霊", "不思議"] },
+  ship: { label: "船", setting: "仲間たちを乗せて銀河を進む、はぐれ団の飛行船。", skill: "航路を守り、仲間を運ぶ", tags: ["宇宙人", "守り", "はぐれもの"] },
+};
+
+function roleDef(role) {
+  return ROLE_DEFS[role] || ROLE_DEFS.balanced;
+}
 
 // 戦闘スキル定義（8種）。kind で効果を分岐。element は弱点/耐性判定に使用（攻撃系のみ）
 const SKILLS = {
@@ -315,23 +318,13 @@ const PASSIVES = [
   { id: "lucky", label: "幸運（会心率+12%）",      crit: 0.12 },
 ];
 
-const ALLY_TAG_OVERRIDES = {
-  c1: ["機械", "はぐれもの", "低レア"],
-  c2: ["精霊", "不思議", "低レア"],
-  c3: ["宇宙人", "回復", "低レア"],
-  c4: ["機械", "守り", "低レア"],
-  c5: ["宇宙人", "不思議", "低レア"],
-  c6: ["宇宙人", "回復", "低レア"],
-  c7: ["動物", "はぐれもの", "低レア"],
-  c8: ["機械", "不思議", "低レア"],
-};
-
-function tagsForAlly(no, rarity, skillKey, name, face, setting, skill) {
-  const id = "c" + no;
-  if (ALLY_TAG_OVERRIDES[id]) return ALLY_TAG_OVERRIDES[id].slice();
-
+function tagsForAlly(entry, skillKey, face, setting, skill) {
+  const rarity = entry.rarity;
+  const role = roleDef(entry.role);
   const tags = new Set();
-  const text = `${name} ${face} ${setting} ${skill}`;
+  role.tags.forEach(tag => tags.add(tag));
+  tags.add(role.label);
+  const text = `${entry.name} ${face} ${setting} ${skill} ${entry.role}`;
   if (rarity <= LOW_RARITY_MAX) tags.add("低レア");
 
   if (/はぐれ|迷子|壊れ|ボロ|弱|忘れ|ノイズ|バグ|怪盗|脱走|失った|逃げた/.test(text)) tags.add("はぐれもの");
@@ -350,27 +343,34 @@ function tagsForAlly(no, rarity, skillKey, name, face, setting, skill) {
   return Array.from(tags).slice(0, 3);
 }
 
-// RAW から実データへ展開（レア度・ステータス・スキル・パッシブ・航行効果・ボイスを自動算出）
-const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
-  const rarity = Math.floor((no - 1) / 10) + 1;
-  const id = "c" + no;
+// カタログから実データへ展開（表示名・レア度・ロールを正として、既存戦闘用フィールドを補完）
+const ALLIES = CHARACTER_CATALOG
+  .filter(entry => isRosterAllyId(entry.id))
+  .map(entry => {
+  const no = Number(entry.id.slice(1));
+  const id = entry.id;
+  const rarity = entry.rarity;
+  const role = roleDef(entry.role);
+  const face = CHARACTER_FACE_BY_ID[id] || role.face || "⭐";
+  const setting = entry.description || role.setting;
+  const skill = role.skill;
   const skillKey = SKILL_KEYS[(no - 1) % SKILL_KEYS.length];
-  const tags = tagsForAlly(no, rarity, skillKey, name, face, setting, skill);
+  const tags = tagsForAlly(entry, skillKey, face, setting, skill);
   // 各キャラのスキルセット（シグネチャ＋レア度で増える）。重複は除去
   const skillSet = [skillKey];
-  if (rarity >= 3) skillSet.push(SKILL_KEYS[no % SKILL_KEYS.length]);
-  if (rarity >= 6) skillSet.push(SKILL_KEYS[(no + 3) % SKILL_KEYS.length]);
-  if (rarity >= 9) skillSet.push(SKILL_KEYS[(no + 5) % SKILL_KEYS.length]);
+  if (rarity >= 4) skillSet.push(SKILL_KEYS[no % SKILL_KEYS.length]);
+  if (rarity >= 8) skillSet.push(SKILL_KEYS[(no + 3) % SKILL_KEYS.length]);
+  if (rarity >= 10) skillSet.push(SKILL_KEYS[(no + 5) % SKILL_KEYS.length]);
   const skills = Array.from(new Set(skillSet)).slice(0, 4);
   return {
-    id, name, face, img: id, rarity, setting, skill,
+    id, name: entry.name, face, img: id, rarity, role: entry.role, roleLabel: role.label, setting, description: setting, skill,
     tag: tags.join(" / "),
     tags,
     hp: 30 + rarity * 14,               // レア度でHP自動算出
     atk: 8 + rarity * 4,                // レア度で攻撃力自動算出
     def: 2 + Math.round(rarity * 1.4),  // 防御
     spd: 8 + rarity * 2 + (no % 5),     // 素早さ
-    level: rarity,                      // レベル＝レア度（1〜10。編成の強さの目安）
+    level: rarity,                      // レベル＝レア度（編成の強さの目安）
     skillKey,
     skills,                              // 戦闘で選べるスキル一覧
     bskill: SKILLS[skillKey],           // 戦闘スキル（シグネチャ）
@@ -380,7 +380,7 @@ const ALLIES = RAW_ALLIES.map(([no, name, face, setting, skill]) => {
   };
 });
 
-const STARTER_ID = "c1"; // 初期メンバー（まいごロボ・ピノ）
+const STARTER_ID = "c1"; // 初期メンバー（ロボ太）
 
 // 敵の系統ラベル
 const ENEM_CAT = { bio: "宇宙生物系", robo: "ロボ・AI系", villain: "悪人系", concept: "概念系" };
@@ -412,6 +412,52 @@ const STAGE_THEMES = [
 const stageTheme = (stage) => STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
 const hexCss = (color) => `#${color.toString(16).padStart(6, "0")}`;
 
+const BOSS_IMAGE_BY_STAGE = {
+  1: "enemies/st01_space_junk_storm",
+  2: "enemies/st02_checkpoint_robot",
+  3: "enemies/st03_star_thief",
+  4: "enemies/st04_gamel_merchant",
+  5: "enemies/st05_spring_banchou",
+  6: "enemies/st06_meteor_wolf",
+  7: "enemies/st07_lost_hunter_drone",
+  8: "enemies/st08_black_company_manager",
+  9: "enemies/st09_stardust_circus_master",
+  10: "enemies/st10_captain_zaba",
+  11: "enemies/st11_rusted_giant_gordon",
+  12: "enemies/st12_false_hero_mirror",
+};
+
+const BOSS_ULTIMATE_PLAN = [
+  { stage: 1,  bossName: "宇宙海賊キャプテン・ザバ",       name: "ギャラクシーキャノン" },
+  { stage: 2,  bossName: "サビつき巨兵ゴルドン",           name: "アイアンフォール" },
+  { stage: 3,  bossName: "偽りの勇者ミラー",               name: "ヒーローコピー" },
+  { stage: 4,  bossName: "星屑魔導師ネブラ",               name: "メテオレイン" },
+  { stage: 5,  bossName: "深海惑星の主アビス",             name: "アビスウェーブ" },
+  { stage: 6,  bossName: "反転王リバース",                 name: "リバースワールド" },
+  { stage: 7,  bossName: "星盗賊クロウ",                   name: "スターリーパー" },
+  { stage: 8,  bossName: "機械獣ギガファング",             name: "ギガクラッシュ" },
+  { stage: 9,  bossName: "夢喰いバクーン",                 name: "ドリームイーター" },
+  { stage: 10, bossName: "古代衛星アーク",                 name: "アークジャッジ" },
+  { stage: 11, bossName: "AI司祭エクレア",                 name: "ロストプロトコル" },
+  { stage: 12, bossName: "偽神デウス",                     name: "ゴッドエラー" },
+  { stage: 13, bossName: "運命管理AIラックレス",           name: "運命最適化" },
+  { stage: 14, bossName: "星喰い幼獣グラトン",             name: "スターデヴォア" },
+  { stage: 15, bossName: "銀河裁判官ジャッジム",           name: "不要判定" },
+  { stage: 16, bossName: "記憶ぬすみノイズ",               name: "メモリーイート" },
+  { stage: 17, bossName: "無重力の王グラビス",             name: "ゼログラビティ" },
+  { stage: 18, bossName: "銀河回収機関の艦長レイド",       name: "ターゲット回収" },
+  { stage: 19, bossName: "完成された勇者オルデン",         name: "パーフェクトソウル" },
+  { stage: 20, bossName: "運命固定装置ラストギア",         name: "ラストシミュレーション" },
+];
+const normalizeBossName = (name) => String(name || "").replace(/[\s　・]/g, "");
+const BOSS_ULTIMATE_BY_NAME = Object.fromEntries(
+  BOSS_ULTIMATE_PLAN.map(ultimate => [normalizeBossName(ultimate.bossName), ultimate])
+);
+function bossUltimateForName(name) {
+  const ultimate = BOSS_ULTIMATE_BY_NAME[normalizeBossName(name)];
+  return ultimate ? { name: ultimate.name, plannedStage: ultimate.stage, bossName: ultimate.bossName } : null;
+}
+
 // 20ステージ：[stage, 星名, 星アイコン, 敵名, 敵絵文字, 系統, ギミック(説明)]
 // 敵HP/攻撃・報酬・スカウト出現レア度帯は stage から自動算出
 const RAW_STAGES = [
@@ -442,6 +488,9 @@ const STARS = [];
 const ENEMIES = {};
 RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const id = "s" + stage, eid = "e" + stage;
+  const bossImage = BOSS_IMAGE_BY_STAGE[stage] || null;
+  const bossImagePath = bossImage ? `assets/${bossImage}.png` : null;
+  const ultimate = bossUltimateForName(eName);
   const boss = stage === 20;
   // 序盤はゆるく、中盤以降は曲線的に強くなる（仲間集め/スカウトを促す）
   // 中盤以降を大きく強化（stage10で味方平均Lv4、stage17で平均Lv7.5級の編成が必要な手応え）
@@ -456,8 +505,8 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
     : "4人＋回復/スキル";
   const reward = boss ? 80 : 3 + stage * 2;
   const center = Math.ceil(stage / 2);
-  const rMin = Math.max(1, center - 1);
-  const rMax = Math.min(10, center + 1);
+  const rMin = Math.max(1, Math.min(MAX_ALLY_RARITY, center - 1));
+  const rMax = Math.max(rMin, Math.min(MAX_ALLY_RARITY, center + 1));
   const theme = stageTheme(stage);
   // 系統ごとの弱点・耐性（弱点は攻撃スキルで突けるもの＝物理/炎/光/闇 に限定）
   const WR = {
@@ -468,14 +517,31 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   };
   const wr = WR[cat] || { weak: "物理", resist: "氷" };
   const elevel = Math.ceil(stage / 2); // 2ステージごとに敵Lv+1（表示は控えめ）
-  ENEMIES[eid] = { name: eName, face: eFace, img: eid, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss, weak: wr.weak, resist: wr.resist, level: elevel };
-  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme, danger, recommend });
+  ENEMIES[eid] = { name: eName, face: eFace, img: eid, image: bossImage, imagePath: bossImagePath, ultimate, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss, weak: wr.weak, resist: wr.resist, level: elevel };
+  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, enemyImage: bossImage, enemyImagePath: bossImagePath, enemyUltimate: ultimate, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme, danger, recommend });
 });
 
 // ラスボスの登場セリフ
 const BOSS_QUOTE = "お前たちのような、弱く、未完成で、偶然集まった者たちに、銀河を変える資格はない";
 
 const allyById = (id) => ALLIES.find(a => a.id === id);
+
+function allyNoFromId(id) {
+  const m = /^c([1-9]\d*)$/.exec(String(id || ""));
+  return m ? Number(m[1]) : null;
+}
+function isRosterAllyId(id) {
+  const no = allyNoFromId(id);
+  return no !== null && no <= TOTAL_CHARACTERS;
+}
+function isImplementedAllyImageId(id) {
+  const no = allyNoFromId(id);
+  return no !== null && no <= ALLY_IMAGE_IMPLEMENTED_COUNT;
+}
+function allyImagePath(allyOrId) {
+  const id = typeof allyOrId === "string" ? allyOrId : (allyOrId?.img || allyOrId?.id);
+  return isImplementedAllyImageId(id) ? `characters/${id}` : null;
+}
 
 // 航行ミッション（開始時に1つ提示。成功で戦闘/スカウト用ボーナス）
 // bonus.type: enemyHp(-10%) / scoutRate(+5%) / crystal(+20) / allyHp(+1)
@@ -673,7 +739,7 @@ function loadSave() {
         data.recruited = Array.from(new Set([...(data.recruited || []), ...data.party]));
         delete data.dex;
       }
-      // 100人ロスター化に伴う移行：存在しない仲間IDを除去し、初期メンバーを保証
+      // 60人ロスターに合わせ、存在しない仲間IDを除去し、初期メンバーを保証
       const valid = new Set(ALLIES.map(a => a.id));
       data.party = (data.party || []).filter(id => valid.has(id));
       data.discovered = (data.discovered || []).filter(id => valid.has(id));
@@ -748,11 +814,9 @@ function starRecordLabel(star = currentStar) {
   return star ? `${star.stage}. ${star.name}` : null;
 }
 
-// ラスボス挑戦に必要な仲間数（No.1〜99）。No.100 オルカ号は特別枠で除外
-const REQUIRED_HEROES = 99;
-// 図鑑（発見済み）に登録された No.1〜99 の人数。重複は元々なし／データ無しでも0
+// 図鑑（発見済み）に登録された正式仲間ID c1〜c60 の人数。重複は元々なし／データ無しでも0
 function heroCount() {
-  return (save.discovered || []).filter(id => id !== "c100" && /^c\d+$/.test(id)).length;
+  return (save.discovered || []).filter(isRosterAllyId).length;
 }
 
 // -------------------------------------------------------------
@@ -767,15 +831,23 @@ function tryImage(path) {
   imgCache[path] = img;
   return img;
 }
+function escAttr(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+function assetImageHTML(path, fallback = "", className = "") {
+  const cls = className ? ` class="${escAttr(className)}"` : "";
+  return `<img src="assets/${path}.png" alt=""${cls} data-fallback="${escAttr(fallback)}" onerror="this.replaceWith(document.createTextNode(this.dataset.fallback))">`;
+}
 // 絵文字 or 画像のHTMLを返す（画像が読めなければ絵文字を表示）
 function faceHTML(emoji, path) {
+  if (!path) return emoji;
   const probe = tryImage(path);
-  // 読み込み済みかつ有効なら画像、それ以外は絵文字
-  if (probe.complete && probe.naturalWidth > 0) {
-    return `<img src="assets/${path}.png" alt="">`;
-  }
-  // 非同期で読めた場合に差し替えできるよう、絵文字を出しておく
-  return emoji;
+  if (probe.complete && probe.naturalWidth <= 0) return emoji;
+  return assetImageHTML(path, emoji);
 }
 
 // 装飾用PNGスロット：画像があれば表示しフォールバックを隠す（無ければ従来表示のまま）
@@ -1101,10 +1173,11 @@ function renderPartyScreen() {
     const a = allyById(id); if (!a) return "";
     return `
       <div class="party-row">
-        <div class="pr-face">${faceHTML(a.face, `characters/${a.img}`)}</div>
+        <div class="pr-face">${faceHTML(a.face, allyImagePath(a))}</div>
         <div class="pr-info">
           <div class="pr-name">${a.name} <span class="rarity">★${a.rarity}</span></div>
           <div class="pr-tags">${a.tags.map(tag => `<span class="tag-chip">${tag}</span>`).join("")}</div>
+          <div class="pr-sub">ロール：${a.roleLabel}</div>
           <div class="pr-sub">${a.setting}</div>
           <div class="pr-sub">Lv.${a.level} ／ HP${a.hp} ／ 攻${a.atk} ／ 防${a.def} ／ 速${a.spd}</div>
           <div class="pr-sub">スキル：${a.bskill.name}（${a.bskill.desc}）</div>
@@ -1258,9 +1331,9 @@ function renderStarList() {
     // 直前の星をクリアしていれば解放（最初の星は常に解放）
     const prevCleared = i === 0 || save.cleared.includes(STARS[i-1].id);
     let unlocked = prevCleared;
-    // ラスボス：直前クリア済みでも No.1〜99 が99人未満なら挑戦不可（理由を表示しタップ可）
+    // ラスボス：直前クリア済みでも必要人数未満なら挑戦不可（理由を表示しタップ可）
     let heroGate = false;
-    if (star.boss && prevCleared && hc < REQUIRED_HEROES) { heroGate = true; unlocked = false; }
+    if (star.boss && prevCleared && hc < FINAL_BOSS_UNLOCK_COUNT) { heroGate = true; unlocked = false; }
     const card = document.createElement("div");
     const current = unlocked && !cleared && (nextIndex === -1 ? i === STARS.length - 1 : i === nextIndex);
     card.className = "star-card"
@@ -1274,10 +1347,10 @@ function renderStarList() {
 
     let descHtml, badgeHtml;
     if (star.boss && heroGate) {
-      descHtml = `<span class="star-cat">${star.cat}</span> 🔒 ラスボスに挑むには99人のはぐれ者の力が必要 ／ <b style="color:#fd6">現在 ${hc} / ${REQUIRED_HEROES}人</b>`;
+      descHtml = `<span class="star-cat">${star.cat}</span> 🔒 ラスボスに挑むには${FINAL_BOSS_UNLOCK_COUNT}人のはぐれ者の力が必要 ／ <b style="color:#fd6">現在 ${hc} / ${FINAL_BOSS_UNLOCK_COUNT}人</b>`;
       badgeHtml = `<span class="star-badge" style="background:rgba(255,90,90,.18);color:#f88">🔒</span>`;
     } else if (star.boss && unlocked && !cleared) {
-      descHtml = `<span class="star-cat">${star.cat}</span> ⚡ 99人のはぐれ者が集まった！ ラストギアへの航路が開いた！`;
+      descHtml = `<span class="star-cat">${star.cat}</span> ⚡ ${FINAL_BOSS_UNLOCK_COUNT}人のはぐれ者が集まった！ ラストギアへの航路が開いた！`;
       badgeHtml = `<span class="star-badge" style="background:rgba(255,216,90,.2);color:var(--gold)">挑戦可</span>`;
     } else {
       descHtml = `<span class="star-cat">${star.cat}</span> <span class="star-theme">${star.theme.label}</span> ${star.desc}`;
@@ -1288,9 +1361,12 @@ function renderStarList() {
     const recoHtml = (!star.boss || (star.boss && !heroGate))
       ? `<div class="star-reco">推奨：${star.recommend}　危険度：<span class="star-danger">${dangerStars}</span>${cleared ? "　🔁再挑戦OK" : ""}</div>`
       : "";
+    const iconHtml = star.enemyImage
+      ? `<div class="star-boss-thumb">${faceHTML(star.icon, star.enemyImage)}</div>`
+      : `<div class="star-icon">${star.icon}</div>`;
     card.innerHTML = `
       <div class="star-route"></div>
-      <div class="star-icon">${star.icon}</div>
+      ${iconHtml}
       <div class="star-info">
         <div class="star-name">${star.boss ? "👑 " : ""}${star.stage}. ${star.name}</div>
         <div class="star-desc">${descHtml}</div>
@@ -1300,7 +1376,7 @@ function renderStarList() {
     `;
     if (heroGate) {
       card.addEventListener("click", () =>
-        toast(`まだ仲間が足りない… あと ${REQUIRED_HEROES - hc} 人。銀河中のはぐれ者をもっと探そう`));
+        toast(`まだ仲間が足りない… あと ${FINAL_BOSS_UNLOCK_COUNT - hc} 人。銀河中のはぐれ者をもっと探そう`));
     } else if (unlocked) {
       card.addEventListener("click", () => startStage(star));
     }
@@ -1318,11 +1394,16 @@ function startStage(star) {
 function showPreflight(star) {
   const eff = computeNavEffects(save.party);
   document.getElementById("preflight-star").textContent = `${star.icon} ${star.name} へ`;
+  const bossEl = document.getElementById("preflight-boss");
+  if (bossEl) {
+    bossEl.hidden = !star.enemyImage;
+    bossEl.innerHTML = star.enemyImage ? faceHTML(star.icon, star.enemyImage) : "";
+  }
   const list = document.getElementById("preflight-list");
   const navHtml = eff.labels.length
     ? eff.labels.map(l => `
         <div class="pf-row">
-          <span class="pf-face">${faceHTML(l.face, `characters/${l.img}`)}</span>
+          <span class="pf-face">${faceHTML(l.face, allyImagePath(l))}</span>
           <span class="pf-name">${l.name}</span>
           <span class="pf-eff">${l.label}</span>
         </div>`).join("")
@@ -1425,8 +1506,8 @@ function initShooting() {
   dl.position.set(2, 5, 6);
   SH.scene.add(dl);
 
-  // 飛行船（簡易ジオメトリ：将来PNG/モデルに差し替え可）
-  SH.ship = buildShip();
+  // プレイヤー飛行船：c60「はぐれ飛行船オルカ号」
+  SH.ship = createPlayerShip();
   SH.scene.add(SH.ship);
 
   // 左右の僚機（ウイングマン）：赤＝左 / 金＝右
@@ -1451,74 +1532,193 @@ function buildWingman(color) {
 }
 
 
-// タイトルの中央宇宙船イメージ：丸っこいクリーム色の船体＋青い「n_n」顔
-function buildShip() {
+const ORCA_DARK = 0x172033;
+const ORCA_BLACK = 0x0b1020;
+const ORCA_WHITE = 0xe8eef5;
+const ORCA_GRAY = 0x6f7f91;
+const COCKPIT_BLUE = 0x39c8ff;
+const THRUSTER_BLUE = 0x42dfff;
+const WARM_LIGHT = 0xffb347;
+const FLAG_RED = 0xb84a4a;
+const PATCH_BRASS = 0xb98a45;
+
+function createPlayerShip() {
+  return createOrcaShip();
+}
+
+function orcaMaterial(color, opts = {}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: opts.emissive ?? 0x000000,
+    emissiveIntensity: opts.emissiveIntensity ?? 0.22,
+    metalness: opts.metalness ?? 0.32,
+    roughness: opts.roughness ?? 0.58,
+    flatShading: true,
+    transparent: opts.opacity != null,
+    opacity: opts.opacity ?? 1,
+  });
+}
+
+function placeShipPart(group, mesh, { name, position, rotation, scale } = {}) {
+  if (name) mesh.name = name;
+  if (position) mesh.position.set(...position);
+  if (rotation) mesh.rotation.set(...rotation);
+  if (scale) mesh.scale.set(...scale);
+  group.add(mesh);
+  return mesh;
+}
+
+// c60「はぐれ飛行船オルカ号」：ローポリでかわいいシャチ型の母艦。
+function createOrcaShip() {
   const g = new THREE.Group();
+  const darkMat = orcaMaterial(ORCA_DARK, { emissive: ORCA_BLACK, emissiveIntensity: 0.16, metalness: 0.42 });
+  const blackMat = orcaMaterial(ORCA_BLACK, { emissive: 0x050811, emissiveIntensity: 0.18, metalness: 0.38 });
+  const whiteMat = orcaMaterial(ORCA_WHITE, { emissive: 0x24313c, emissiveIntensity: 0.16, metalness: 0.2 });
+  const grayMat = orcaMaterial(ORCA_GRAY, { metalness: 0.55, roughness: 0.45 });
+  const brassMat = orcaMaterial(PATCH_BRASS, { emissive: 0x2b1600, emissiveIntensity: 0.12, metalness: 0.5 });
+  const cockpitMat = new THREE.MeshStandardMaterial({
+    color: COCKPIT_BLUE,
+    emissive: COCKPIT_BLUE,
+    emissiveIntensity: 0.85,
+    metalness: 0.15,
+    roughness: 0.2,
+    flatShading: true,
+  });
+  const lightMat = new THREE.MeshBasicMaterial({ color: WARM_LIGHT });
+  const flameMat = new THREE.MeshBasicMaterial({ color: THRUSTER_BLUE, transparent: true, opacity: 0.85 });
+  const flagMat = orcaMaterial(FLAG_RED, { emissive: 0x260808, emissiveIntensity: 0.2, roughness: 0.68 });
 
-  // 丸い船体（少し横ぶくれ）
-  const hull = new THREE.Mesh(
-    new THREE.SphereGeometry(0.6, 24, 18),
-    new THREE.MeshStandardMaterial({ color: 0xe8dcc0, metalness: 0.5, roughness: 0.4, emissive: 0x2a2415 })
-  );
-  hull.scale.set(1.15, 0.9, 1.05);
-  g.add(hull);
-
-  // 顔パネル（カメラ側 +Z）
-  const face = new THREE.Mesh(
-    new THREE.CircleGeometry(0.32, 24),
-    new THREE.MeshStandardMaterial({ color: 0x0a1430, emissive: 0x0a1430, roughness: 0.5 })
-  );
-  face.position.set(0, 0.06, 0.62);
-  g.add(face);
-
-  // 目（n_n）＝青く光る2つ
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x66e0ff });
-  [-0.12, 0.12].forEach(x => {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), eyeMat);
-    eye.position.set(x, 0.07, 0.66);
-    g.add(eye);
+  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.52, 24, 16), darkMat), {
+    name: "mainBody",
+    scale: [1.24, 0.78, 0.72],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.48, 20, 14), blackMat), {
+    name: "darkTop",
+    position: [0, 0.15, 0.04],
+    scale: [1.18, 0.5, 0.66],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.38, 24), whiteMat), {
+    name: "whiteBelly",
+    position: [0, -0.16, 0.54],
+    scale: [1.42, 0.66, 1],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.2, 18), whiteMat), {
+    name: "orcaCheekLeft",
+    position: [-0.28, 0.06, 0.56],
+    rotation: [0, 0, -0.16],
+    scale: [1.1, 0.6, 1],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.2, 18), whiteMat), {
+    name: "orcaCheekRight",
+    position: [0.28, 0.06, 0.56],
+    rotation: [0, 0, 0.16],
+    scale: [1.1, 0.6, 1],
   });
 
-  // 舷側のポッド（左右）
-  const podMat = new THREE.MeshStandardMaterial({ color: 0xb9a888, metalness: 0.5, roughness: 0.5 });
-  [-0.66, 0.66].forEach(x => {
-    const pod = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 12), podMat);
-    pod.position.set(x, -0.08, 0.05);
-    pod.scale.set(1, 0.9, 1.3);
-    g.add(pod);
+  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.21, 24), cockpitMat), {
+    name: "cockpit",
+    position: [0, 0.18, 0.62],
+    scale: [1.62, 0.62, 1],
+  });
+  [-0.18, 0.18].forEach((x, i) => {
+    placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), lightMat), {
+      name: `warmCabinLight${i + 1}`,
+      position: [x, -0.02, 0.66],
+    });
   });
 
-  // 青く光る舷窓（ポートホール）
-  const portMat = new THREE.MeshBasicMaterial({ color: 0x59c8ff });
-  [[-0.34, 0.18], [0.34, 0.18], [0, 0.34]].forEach(([x, y]) => {
-    const port = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), portMat);
-    port.position.set(x, y, 0.5);
-    g.add(port);
+  placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 3), blackMat), {
+    name: "dorsalFin",
+    position: [0, 0.53, 0.02],
+    rotation: [0, 0, Math.PI],
+    scale: [0.9, 1, 0.7],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), blackMat), {
+    name: "sideFinLeft",
+    position: [-0.58, -0.05, 0.08],
+    rotation: [0, 0, -0.28],
+    scale: [1.55, 0.42, 0.46],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), blackMat), {
+    name: "sideFinRight",
+    position: [0.58, -0.05, 0.08],
+    rotation: [0, 0, 0.28],
+    scale: [1.55, 0.42, 0.46],
   });
 
-  // てっぺんの小さなアンテナ＋光
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.015, 0.015, 0.25, 6),
-    new THREE.MeshStandardMaterial({ color: 0x888888 })
-  );
-  pole.position.set(0, 0.5, 0);
-  g.add(pole);
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffd84a }));
-  tip.position.set(0, 0.64, 0);
-  g.add(tip);
+  const thrusters = [];
+  [-0.45, 0.45].forEach((x, i) => {
+    placeShipPart(g, new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.34, 12), grayMat), {
+      name: i === 0 ? "engineLeft" : "engineRight",
+      position: [x, -0.36, 0.18],
+      rotation: [0, 0, Math.PI / 2],
+      scale: [1.08, 0.9, 1],
+    });
+    placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.12, 14), blackMat), {
+      name: i === 0 ? "engineNozzleLeft" : "engineNozzleRight",
+      position: [x, -0.5, 0.42],
+      scale: [1.1, 0.72, 1],
+    });
+    const flame = placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.42, 12), flameMat), {
+      name: i === 0 ? "thrusterLeft" : "thrusterRight",
+      position: [x, -0.66, 0.34],
+      rotation: [0, 0, Math.PI],
+      scale: [0.9, 1, 0.9],
+    });
+    flame.userData.baseScale = { x: 0.9, y: 1, z: 0.9 };
+    thrusters.push(flame);
+  });
 
-  // エンジン光（後方＝画面奥 -Z へトレイル）
-  const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 12, 12),
-    new THREE.MeshBasicMaterial({ color: 0x66ffff })
-  );
-  glow.position.set(0, -0.12, -0.5);
-  glow.scale.set(1, 1, 1.8);
-  g.add(glow);
+  placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.045, 0.035), grayMat), {
+    name: "hullBelt",
+    position: [0, -0.03, 0.66],
+    rotation: [0, 0, 0.04],
+  });
+  [
+    [-0.31, -0.25, 0.66, 0.18, 0.07, -0.18, "patchPartsLeft"],
+    [0.26, -0.27, 0.65, 0.16, 0.06, 0.22, "patchPartsRight"],
+    [0.38, 0.03, 0.63, 0.13, 0.045, -0.08, "patchPartsTop"],
+  ].forEach(([x, y, z, sx, sy, rz, name]) => {
+    placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.035), brassMat), {
+      name,
+      position: [x, y, z],
+      rotation: [0, 0, rz],
+      scale: [sx, sy, 1],
+    });
+  });
 
-  g.scale.setScalar(0.78); // 全体を少し小さく
+  placeShipPart(g, new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.34, 6), grayMat), {
+    name: "smallFlagPole",
+    position: [0.32, 0.55, 0.12],
+  });
+  const flag = placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.025), flagMat), {
+    name: "smallFlag",
+    position: [0.43, 0.66, 0.12],
+    rotation: [0, 0, -0.08],
+  });
+
+  g.userData = {
+    shipName: "はぐれ飛行船オルカ号",
+    role: "playerShip",
+    hitR: SHIP_R,
+    thrusters,
+    flag,
+  };
+  g.scale.set(1.15, 1.15, 1.15);
   g.position.set(0, FLIGHT_SHIP_Y, FLIGHT_OBJECT_Z);
   return g;
+}
+
+function animatePlayerShip(now) {
+  if (!SH.ship?.userData) return;
+  const pulse = 0.92 + Math.sin(now / 115) * 0.16 + Math.sin(now / 57) * 0.06;
+  (SH.ship.userData.thrusters || []).forEach((flame, i) => {
+    const base = flame.userData.baseScale || { x: 1, y: 1, z: 1 };
+    const sidePulse = pulse + Math.sin(now / 170 + i) * 0.05;
+    flame.scale.set(base.x * (1.02 - sidePulse * 0.05), base.y * sidePulse, base.z);
+    if (flame.material) flame.material.opacity = clamp(0.62 + sidePulse * 0.22, 0.55, 0.95);
+  });
+  if (SH.ship.userData.flag) SH.ship.userData.flag.rotation.z = -0.08 + Math.sin(now / 230) * 0.08;
 }
 
 function clearGroup(group) {
@@ -1786,6 +1986,7 @@ function updateShooting(dt, now) {
   SH.ship.position.z = FLIGHT_OBJECT_Z;
   SH.ship.rotation.z = (SH.targetX - SH.ship.position.x) * -0.2;
   SH.ship.rotation.x = -0.14;
+  animatePlayerShip(now);
 
   // 僚機は自機の左右に追従
   const wob = Math.sin(now / 300) * 0.1;
@@ -2150,7 +2351,7 @@ function renderShootingParty() {
     const c = PM_COLORS[i % 4];
     return `
       <div class="sh-pm" style="border-left-color:${c}">
-        <div class="sh-pm-face">${faceHTML(a.face, `characters/${a.img}`)}</div>
+        <div class="sh-pm-face">${faceHTML(a.face, allyImagePath(a))}</div>
         <div class="sh-pm-info">
           <div class="sh-pm-name">${i + 1}P ${a.name}</div>
           <div class="sh-pm-gauge"><div style="background:${c}"></div></div>
@@ -2178,7 +2379,7 @@ function updateSpeech(now) {
   SH.lastSpeech = now;
   SH.speechIdx = (SH.speechIdx + 1) % SPEECH_LINES.length;
   const leader = allyById(save.party[0]);
-  document.getElementById("sh-speech-face").innerHTML = leader ? faceHTML(leader.face, `characters/${leader.img}`) : "🐶";
+  document.getElementById("sh-speech-face").innerHTML = leader ? faceHTML(leader.face, allyImagePath(leader)) : "🐶";
   document.getElementById("sh-speech-text").textContent = SPEECH_LINES[SH.speechIdx];
 }
 
@@ -2348,11 +2549,11 @@ const PINO_PRE_BATTLE_LINES = [
   "でも、いっしょに進むことはできます",
   "行きましょう。最初の一歩です",
 ];
-// ラスボス前のピノの口上（99人を集めて到達したとき）
+// ラスボス前のピノの口上（必要人数を集めて到達したとき）
 const PINO_BOSS_LINES = [
   "みんな、そろいました",
   "弱くても、迷っても、ここまで来ました",
-  "99人のはぐれ者の声が、オルカ号を動かしています",
+  `${FINAL_BOSS_UNLOCK_COUNT}人のはぐれ者の声が、オルカ号を動かしています`,
   "行きましょう。運命を、固定させないために",
 ];
 let pinoSceneStar = null;
@@ -2403,6 +2604,7 @@ document.querySelector("#screen-pino").addEventListener("click", (e) => {
 const BT = {
   enemy: null, enemyHp: 0, enemyMaxHp: 0, party: [],
   turnLock: false, won: false,
+  enemyUltimateShown: false,
   enemyAtkMul: 1, enemyDebuffTurns: 0, guardTurns: 0, barrier: 0, nextAttackMul: 1,
   synergy: null,
 };
@@ -2424,6 +2626,7 @@ function startBattle(star) {
   BT.enemyHp = BT.enemyMaxHp;
   BT.won = false;
   BT.turnLock = false;
+  BT.enemyUltimateShown = false;
   BT.enemyAtkMul = 1;
   BT.enemyDebuffTurns = 0;
   BT.guardTurns = 0;
@@ -2442,16 +2645,22 @@ function startBattle(star) {
 
   // 敵描画＋系統・ギミック・ボス表示
   document.getElementById("enemy-name").textContent = def.name;
-  document.getElementById("enemy-sprite").innerHTML = faceHTML(def.face, def.boss ? "enemies/final_boss" : `enemies/${def.img}`);
+  const enemyImage = def.image || (def.boss ? "enemies/final_boss" : `enemies/${def.img}`);
+  document.getElementById("enemy-sprite").innerHTML = faceHTML(def.face, enemyImage);
   const catEl = document.getElementById("enemy-cat");
   catEl.textContent = def.cat;
   catEl.className = "enemy-cat cat-" + (def.catKey || "");
   document.getElementById("enemy-gimmick").textContent = `⚠ ${def.gimmick}`;
   const elemEl = document.getElementById("enemy-elem");
-  if (elemEl) elemEl.innerHTML = `<span class="ew-lv">Lv.${def.level}</span>　<span class="ew-weak">弱点：${def.weak}</span>　<span class="ew-resist">耐性：${def.resist}</span>`;
+  if (elemEl) {
+    const ultimateHtml = def.ultimate ? `　<span class="ew-ultimate">必殺：${def.ultimate.name}</span>` : "";
+    elemEl.innerHTML = `<span class="ew-lv">Lv.${def.level}</span>　<span class="ew-weak">弱点：${def.weak}</span>　<span class="ew-resist">耐性：${def.resist}</span>${ultimateHtml}`;
+  }
   const badge = document.getElementById("enemy-badge");
   badge.textContent = def.boss ? "★ B O S S ★" : "";
-  document.getElementById("battle-enemy").classList.toggle("is-boss", !!def.boss);
+  const battleEnemyEl = document.getElementById("battle-enemy");
+  battleEnemyEl.classList.toggle("is-boss", !!def.boss);
+  battleEnemyEl.classList.toggle("has-enemy-image", !!def.image);
   setEnemyHpBar();
 
   renderParty();
@@ -2500,7 +2709,7 @@ function renderParty() {
     el.className = "party-member" + (m.dead ? " dead" : "");
     el.id = `pm-${i}`;
     el.innerHTML = `
-      <div class="pm-face">${faceHTML(m.face, `characters/${m.img}`)}</div>
+      <div class="pm-face">${faceHTML(m.face, allyImagePath(m))}</div>
       <div class="pm-name">${m.name}</div>
       <div class="pm-hp">${m.curHp}/${m.maxHp}</div>
       <div class="pm-meta">Lv.${m.level} / ★${m.rarity}</div>
@@ -2610,6 +2819,7 @@ async function doMemberSkill(mi, skillKey) {
   await useMemberSkill(m, skill);
   renderParty();
   if (BT.enemyHp <= 0) return enemyDefeated();
+  maybeShowBossUltimateCue();
   await enemyTurn();
 }
 
@@ -2628,6 +2838,7 @@ async function doSkill() {
     renderParty();
     if (BT.enemyHp <= 0) return enemyDefeated();
   }
+  maybeShowBossUltimateCue();
   await enemyTurn();
 }
 
@@ -2646,6 +2857,16 @@ function elementResult(element) {
   if (element === BT.enemy.weak) return { mult: 1.5, tag: " 弱点！" };
   if (element === BT.enemy.resist) return { mult: 0.6, tag: " 耐性…" };
   return { mult: 1, tag: "" };
+}
+
+function maybeShowBossUltimateCue() {
+  const ultimate = BT.enemy?.ultimate;
+  if (!ultimate || BT.enemyUltimateShown || BT.enemyHp <= 0) return;
+  const maxHp = BT.enemyMaxHp || BT.enemy.hp || 1;
+  if (BT.enemyHp > maxHp * 0.5) return;
+  BT.enemyUltimateShown = true;
+  log(`${BT.enemy.name}の必殺技！`);
+  log(`${ultimate.name}！！`);
 }
 
 async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false, element = "物理") {
@@ -2711,6 +2932,7 @@ async function attackRound(multiplier, label) {
     await applyEnemyDamage(m, dmg, label, crit, buffed);
     if (BT.enemyHp <= 0) { return enemyDefeated(); }
   }
+  maybeShowBossUltimateCue();
   await enemyTurn();
 }
 
@@ -2995,10 +3217,10 @@ const FINAL_SCRIPT = [
   { kind: "scout" }, // 弱いまま、それでも立ち上がり続ける（スカウトが崩れる）
   { kind: "line", sp: "はぐれ飛行船オルカ号", text: "――その身を、主人公の前へ滑り込ませた。" },
   { kind: "line", sp: "オルカ号", text: "航路確認" },
-  { kind: "line", sp: "オルカ号", text: "99の声を受信" },
+  { kind: "line", sp: "オルカ号", text: `${FINAL_BOSS_UNLOCK_COUNT}の声を受信` },
   { kind: "line", sp: "オルカ号", text: "はぐれ団、全員搭乗確認" },
   { kind: "line", sp: "オルカ号", text: "これより、運命固定装置へ突入します" },
-  { kind: "awaken" }, // 99人の想いでオルカ号が覚醒（背景変化）
+  { kind: "awaken" }, // 必要人数の想いでオルカ号が覚醒（背景変化）
   { kind: "line", sp: "ピノ", text: "……ちがいます" },
   { kind: "line", sp: "ピノ", text: "ぼくたちは、たしかに迷いました" },
   { kind: "line", sp: "ピノ", text: "でも、ここまで来ました" },
@@ -3049,7 +3271,7 @@ function renderFinalStep() {
   } else if (beat.kind === "awaken") {
     sp.textContent = "";
     msg.className = "final-msg";
-    setFadeText(msg, "99人のはぐれ者の想いが、オルカ号に流れ込む――");
+    setFadeText(msg, `${FINAL_BOSS_UNLOCK_COUNT}人のはぐれ者の想いが、オルカ号に流れ込む――`);
     document.getElementById("screen-final").classList.add("awakening");
     actions.innerHTML = `<div class="final-awaken-word">オルカ号 ―― 覚醒</div>`;
     clearTimeout(finalTimer);
@@ -3174,9 +3396,10 @@ function showScoutOffer(ally) {
   const enough = save.crystals >= cost;
   const replaceTarget = !save.party.includes(ally.id) && save.party.length >= 4 ? allyById(save.party[save.party.length - 1]) : null;
   document.getElementById("scout-result").innerHTML = `
-    <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
+    <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
     <div class="cand-name">${ally.name}</div>
     <div class="cand-rarity">${"★".repeat(ally.rarity)}</div>
+    <div class="scout-sub">ロール：${ally.roleLabel}</div>
     <div class="cand-tag">${ally.tags.map(tag => `<span class="tag-chip">${tag}</span>`).join("")}</div>
     <div class="cand-stats">
       <div class="cand-stat"><div class="k">必要💎</div><div class="v cost ${enough ? "" : "short"}">${cost}</div></div>
@@ -3229,7 +3452,7 @@ function showScoutReplace(ally, cost, beacon) {
   document.getElementById("scout-title").textContent = "パーティが満員！";
   const box = document.getElementById("scout-result");
   box.innerHTML = `
-    <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
+    <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
     <div class="scout-voice ok">「${ally.voice.ok}」</div>
     <div class="scout-msg" style="color:var(--ok)">${ally.name}（★${ally.rarity}）を 仲間にできる！</div>
     <div class="scout-sub">誰かと別れて入れるか、図鑑にだけ残すか えらぼう（💎${cost}）</div>
@@ -3266,7 +3489,7 @@ function doFigureOnly() {
   persist();
   document.getElementById("scout-title").textContent = "図鑑に登録";
   document.getElementById("scout-result").innerHTML = `
-    <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
+    <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
     <div class="scout-voice bye">「${ally.voice.bye}」</div>
     <div class="scout-msg">${ally.name} は 図鑑にだけ 記録された</div>
     <div class="scout-sub">パーティはそのまま（クリスタルは消費していない）</div>
@@ -3305,7 +3528,7 @@ function showScoutResult(ally, kind, cost, recruitResult = {}, beacon = false) {
       ? `パーティ満員のため ${recruitResult.replaced.name} と入れ替え`
       : (recruitResult.alreadyInParty ? "すでにパーティにいる" : "パーティに編成");
     box.innerHTML = `
-      <div class="scout-face">${faceHTML(ally.face, `characters/${ally.img}`)}</div>
+      <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
       <div class="scout-voice ok">「${ally.voice.ok}」</div>
       <div class="scout-msg" style="color:var(--ok)">${ally.name} が なかまになった！</div>
       <div class="scout-sub">💎${cost} 消費${beacon ? " ／ ビーコン使用" : ""} ／ 図鑑に「加入」を記録 ／ ${partyNote}</div>
@@ -3330,7 +3553,7 @@ function skipScout(ally) {
   }
   document.getElementById("scout-title").textContent = "スルー";
   document.getElementById("scout-result").innerHTML = `
-    <div class="scout-face">${ally ? faceHTML(ally.face, `characters/${ally.img}`) : "👋"}</div>
+    <div class="scout-face">${ally ? faceHTML(ally.face, allyImagePath(ally)) : "👋"}</div>
     <div class="scout-voice bye">「${ally ? ally.voice.bye : "またどこかで会おう"}」</div>
     <div class="scout-msg">見送った</div>
     <div class="scout-sub">${ally ? ally.name : "仲間候補"} とは また どこかで（図鑑には「発見」を記録）</div>
@@ -3363,31 +3586,30 @@ document.querySelector("#screen-dex").addEventListener("click", (e) => {
 function renderDex() {
   const grid = document.getElementById("dex-grid");
   grid.innerHTML = "";
-  // 図鑑カウントは「はぐれ者（No.1〜99）」の収集数を表示。No.100 は特別枠
-  document.getElementById("dex-total").textContent = REQUIRED_HEROES;
+  // 図鑑カウントは正式仲間ID c1〜c60 の収集数を表示
+  document.getElementById("dex-total").textContent = TOTAL_CHARACTERS;
   document.getElementById("dex-count").textContent = heroCount();
   ALLIES.forEach((a, i) => {
     const found = save.discovered.includes(a.id);
     const joined = save.recruited.includes(a.id);
-    const special = a.id === "c100"; // はぐれ飛行船オルカ号＝特別枠
+    const special = a.role === "ship";
     const cell = document.createElement("div");
     cell.className = "dex-cell" + (found ? "" : " unknown") + (joined ? " joined" : "") + (special ? " special" : "");
-    const badge = special
-      ? (found ? `<div class="dc-badge joined">特別枠</div>` : `<div class="dc-badge found">特別枠</div>`)
-      : (!found ? "" : joined
-        ? `<div class="dc-badge joined">加入済み</div>`
-        : `<div class="dc-badge found">発見済み</div>`);
+    const badge = !found ? "" : joined
+      ? `<div class="dc-badge joined">${special ? "船枠・加入済み" : "加入済み"}</div>`
+      : `<div class="dc-badge found">${special ? "船枠" : "発見済み"}</div>`;
     const stat = found ? dexStat(a.id) : null;
     cell.innerHTML = `
-      <div class="dc-face">${found ? faceHTML(a.face, `characters/${a.img}`) : "❔"}</div>
+      <div class="dc-face">${found ? faceHTML(a.face, allyImagePath(a)) : "❔"}</div>
       ${found ? `<div class="dc-rarity">★${a.rarity}</div>` : `<div class="dc-rarity dc-secret">---</div>`}
       <div class="dc-name">${found ? a.name : "？？？"}</div>
       <div class="dc-no">No.${String(i + 1).padStart(2, "0")}</div>
       ${found ? `<div class="dc-tags">${a.tags.map(tag => `<span>${tag}</span>`).join("")}</div>` : ""}
+      ${found ? `<div class="dc-statline">ロール ${a.roleLabel}</div>` : ""}
       ${found ? `<div class="dc-statline">発見 ${stat.foundCount} / 成功 ${stat.scoutSuccessCount}</div>` : ""}
       ${badge}
     `;
-    if (found) cell.title = `${a.name}（★${a.rarity}）\nタグ：${a.tags.join(" / ")}\n${a.setting}\n得意：${a.skill}\n発見：${stat.foundCount} / 成功：${stat.scoutSuccessCount}`;
+    if (found) cell.title = `${a.name}（★${a.rarity} / ${a.roleLabel}）\nタグ：${a.tags.join(" / ")}\n${a.setting}\n得意：${a.skill}\n発見：${stat.foundCount} / 成功：${stat.scoutSuccessCount}`;
     grid.appendChild(cell);
   });
 }
@@ -3431,14 +3653,19 @@ window.GAME = {
   completeMission: () => { if (SH.mission) { SH.missionDone = true; SH.missionFailed = false; updateMissionHUD(); } },
   setBonus: (type) => { stageBonus = (MISSIONS.find(m => m.bonus.type === type) || {}).bonus || null; return stageBonus; },
   get bonus() { return stageBonus; },
+  characterCatalog: CHARACTER_CATALOG,
+  allies: ALLIES,
+  stars: STARS,
+  bossUltimates: BOSS_ULTIMATE_PLAN,
   get sh() { return SH; },
   synergy: () => computeSynergies(save.party),
   dexStats: () => { ensureDexStats(save); return save.dexStats; },
   addDexStat: (id, key, amount = 1) => { const stat = addDexStat(id, key, amount); persist(); return stat; },
-  get heroes() { return heroCount(); },                 // 現在の仲間収集数（No.1〜99）
-  heroNeeded: () => Math.max(0, REQUIRED_HEROES - heroCount()),
-  // デバッグ：No.1〜n を図鑑「発見済み」に登録（99人ゲート確認用）
-  discoverHeroes: (n = REQUIRED_HEROES) => {
+  constants: { TOTAL_CHARACTERS, ALLY_IMAGE_IMPLEMENTED_COUNT, FINAL_BOSS_UNLOCK_COUNT },
+  get heroes() { return heroCount(); },                 // 現在の仲間収集数（c1〜c60）
+  heroNeeded: () => Math.max(0, FINAL_BOSS_UNLOCK_COUNT - heroCount()),
+  // デバッグ：No.1〜n を図鑑「発見済み」に登録（ラスボスゲート確認用）
+  discoverHeroes: (n = FINAL_BOSS_UNLOCK_COUNT) => {
     for (let k = 1; k <= n; k++) {
       const id = "c" + k;
       if (!allyById(id)) continue;

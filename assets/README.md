@@ -31,20 +31,26 @@
 | タイトル | 主人公 | `assets/title/hero_main.png` |
 | タイトル | 飛行船 | `assets/ships/ship_default.png` |
 | ワールドマップ | 飛行船 | `assets/ships/ship_default.png` |
-| RPG戦闘 / スカウト / 図鑑 | 仲間キャラ | `assets/characters/c1.png` … `c100.png` |
+| RPG戦闘 / スカウト / 図鑑 | 仲間キャラ | `assets/characters/c1.png` … `c20.png`（画像実装対象） |
+| RPG戦闘 / ワールドマップ / 航行前 | ST1〜ST12ボス | `assets/enemies/st01_space_junk_storm.png` … `st12_false_hero_mirror.png` |
 | ラスボス戦 | ボス | `assets/enemies/final_boss.png` |
 | シューティング | 通常クリスタル | `assets/ui/crystal_normal.png` |
 | シューティング | 大クリスタル | `assets/ui/crystal_big.png` |
 | シューティング | 回復クリスタル | `assets/ui/crystal_heal.png` |
 
 > いずれも **PNGが無ければ従来のテキスト・絵文字・CSS/3D表示にフォールバック**します。
-> まずはこの一覧が差し替え対象。仲間100体全員分は後回し。
+> まずはこの一覧が差し替え対象。仲間は正式ID `c1`〜`c60`、画像実装は `c1`〜`c20` から進めます。
 
 ## ファイル名と読み込み規則
 
-- 仲間キャラのIDは `app.js` の `ALLIES`（`c1`〜`c100`）。
-  読み込みパスは **`assets/characters/<id>.png`**（例：`c1.png`, `c2.png`, `c100.png`）。
+- 仲間キャラのIDは `app.js` の `ALLIES`（正式ID `c1`〜`c60`）。
+  読み込みパスは **`assets/characters/<id>.png`**（例：`c1.png`, `c2.png`, `c20.png`）。
+- 現在コードで画像を有効化している仲間は `c1`〜`c20` のみです。`c21`〜`c60` はPNGが無くても絵文字フォールバックで表示します。
 - 敵IDは `e1`〜`e20`。読み込みは `assets/enemies/<id>.png`。
+- ST1〜ST12のボス画像は、敵IDではなく **`assets/enemies/stNN_slug.png`** 形式で管理します。
+  `NN` は2桁ステージ番号、`slug` は英小文字・数字・アンダースコアの説明名です。
+  例：`st01_space_junk_storm.png`, `st12_false_hero_mirror.png`。
+  対応表は `app.js` の `BOSS_IMAGE_BY_STAGE` に追加します。
 - 例として今回用意するプロンプトと想定ファイル名は `docs/image_prompts.md` を参照。
 
 > 注：画像生成例では `c001.png` のようなゼロ埋め名も挙げていますが、
@@ -60,13 +66,12 @@ ChatGPT等で生成 → 上記パスに配置 → リロードで反映されま
 
 - 画像はすべて **PNG 推奨**
 - **背景透明**
-- **ファイル名はコード側のIDと一致させる**（仲間：`c1`〜`c100` → `assets/characters/c1.png` …、敵：`e1`〜`e20`）
+- **ファイル名はコード側のIDと一致させる**（仲間：`c1`〜`c60` → `assets/characters/c1.png` …、敵：`e1`〜`e20`）
+- ST1〜ST12のボス画像だけは例外として `stNN_slug.png` 形式を使い、`app.js` の `BOSS_IMAGE_BY_STAGE` で対応付ける
 - 画像がない場合は **絵文字・CSS表示にフォールバック**（無くても動作する）
-- **まずは5枚のみ差し替え対象**：
+- **主な差し替え対象**：
   - `assets/title/hero_main.png`
   - `assets/ships/ship_default.png`
-  - `assets/characters/c1.png`（c001／ロボ太）
-  - `assets/characters/c2.png`（c002／ねこ船長）
-  - `assets/characters/c3.png`（c003／おばけ）
-- **100体全員分は後回し**
+  - `assets/characters/c1.png`〜`assets/characters/c20.png`
+- `c21`〜`c60` の画像実装は後回し
 - 生成プロンプトは `docs/image_prompts.md` を参照（Claude Code 側では画像生成は行わない）
