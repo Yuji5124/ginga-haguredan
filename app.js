@@ -306,6 +306,16 @@ const SKILLS = {
   gamble: { name: "いちかばちか", kind: "bigRandom",   power: 4.0, element: "闇",  desc: "闇の低確率大ダメージ" },
 };
 const SKILL_KEYS = Object.keys(SKILLS);
+function allySkillSet(no, primarySkill) {
+  const skills = [primarySkill];
+  let offset = 0;
+  while (skills.length < 2 && offset < SKILL_KEYS.length * 2) {
+    const key = SKILL_KEYS[(no + offset) % SKILL_KEYS.length];
+    if (!skills.includes(key)) skills.push(key);
+    offset++;
+  }
+  return skills;
+}
 // 攻撃属性（弱点/耐性に使う）。たたかう=物理
 const ELEMENTS = ["物理", "炎", "氷", "電気", "光", "闇"];
 
@@ -356,12 +366,7 @@ const ALLIES = CHARACTER_CATALOG
   const skill = role.skill;
   const skillKey = SKILL_KEYS[(no - 1) % SKILL_KEYS.length];
   const tags = tagsForAlly(entry, skillKey, face, setting, skill);
-  // 各キャラのスキルセット（シグネチャ＋レア度で増える）。重複は除去
-  const skillSet = [skillKey];
-  if (rarity >= 4) skillSet.push(SKILL_KEYS[no % SKILL_KEYS.length]);
-  if (rarity >= 8) skillSet.push(SKILL_KEYS[(no + 3) % SKILL_KEYS.length]);
-  if (rarity >= 10) skillSet.push(SKILL_KEYS[(no + 5) % SKILL_KEYS.length]);
-  const skills = Array.from(new Set(skillSet)).slice(0, 4);
+  const skills = allySkillSet(no, skillKey);
   return {
     id, name: entry.name, face, img: id, rarity, role: entry.role, roleLabel: role.label, setting, description: setting, skill,
     tag: tags.join(" / "),
@@ -411,6 +416,33 @@ const STAGE_THEMES = [
 
 const stageTheme = (stage) => STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
 const hexCss = (color) => `#${color.toString(16).padStart(6, "0")}`;
+function rgbaCss(color, alpha) {
+  const n = Number(color) || 0;
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+function stagePatternLayer(theme) {
+  const accent = rgbaCss(theme.accent, 0.24);
+  if (theme.prop === "grid") return `linear-gradient(90deg, ${accent} 1px, transparent 1px), linear-gradient(0deg, ${accent} 1px, transparent 1px)`;
+  if (theme.prop === "beam") return `linear-gradient(112deg, transparent 0 32%, ${accent} 33% 34%, transparent 35% 100%)`;
+  if (theme.prop === "ring") return `radial-gradient(circle at 76% 26%, transparent 0 18%, ${accent} 19% 20%, transparent 21% 100%)`;
+  if (theme.prop === "wave") return `repeating-radial-gradient(circle at 48% 28%, transparent 0 18px, ${accent} 19px 20px)`;
+  if (theme.prop === "gear") return `repeating-conic-gradient(from 12deg at 72% 22%, ${accent} 0 8deg, transparent 8deg 24deg)`;
+  return `linear-gradient(145deg, transparent 0 42%, ${accent} 43% 44%, transparent 45% 100%)`;
+}
+function stageBackgroundSize(theme) {
+  if (theme.prop === "grid") return "42px 42px, 42px 42px, auto, auto, auto, auto";
+  if (theme.prop === "gear") return "130px 130px, auto, auto, auto, auto";
+  return "auto";
+}
+function stageSpaceBackground(theme, focus = "50% 20%") {
+  return [
+    stagePatternLayer(theme),
+    `radial-gradient(circle at ${focus}, ${rgbaCss(theme.primary, 0.48)}, transparent 30%)`,
+    `radial-gradient(circle at 18% 72%, ${rgbaCss(theme.secondary, 0.46)}, transparent 34%)`,
+    `radial-gradient(circle at 82% 68%, ${rgbaCss(theme.accent, 0.30)}, transparent 32%)`,
+    `linear-gradient(180deg, ${theme.css} 0%, #02020a 74%)`,
+  ].join(",");
+}
 
 const BOSS_IMAGE_BY_STAGE = {
   1: "enemies/st01_space_junk_storm",
@@ -425,6 +457,14 @@ const BOSS_IMAGE_BY_STAGE = {
   10: "enemies/st10_captain_zaba",
   11: "enemies/st11_rusted_giant_gordon",
   12: "enemies/st12_false_hero_mirror",
+  13: "enemies/st13_luckless_ai",
+  14: "enemies/st14_glaton",
+  15: "enemies/st15_judgem",
+  16: "enemies/st16_memory_noise",
+  17: "enemies/st17_gravity_king_gravis",
+  18: "enemies/st18_captain_raid",
+  19: "enemies/st19_perfect_hero_orden",
+  20: "enemies/st20_lastgear",
 };
 
 const BOSS_ULTIMATE_PLAN = [
@@ -492,10 +532,11 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const bossImagePath = bossImage ? `assets/${bossImage}.png` : null;
   const ultimate = bossUltimateForName(eName);
   const boss = stage === 20;
-  // 序盤はゆるく、中盤以降は曲線的に強くなる（仲間集め/スカウトを促す）
-  // 中盤以降を大きく強化（stage10で味方平均Lv4、stage17で平均Lv7.5級の編成が必要な手応え）
-  const hp = Math.round((18 + stage * 10 + stage * stage * 2.6) * (boss ? 1.6 : 1));
-  const atk = Math.round((4 + stage * 1.2 + stage * stage * 0.18) * (boss ? 1.4 : 1));
+  // 各仲間が2スキルから選べる分、序盤は練習しやすく、終盤は少し粘る調整。
+  const battleScale = stage <= 6 ? 0.92 : (stage <= 12 ? 1.0 : 1.08);
+  const hp = Math.round((18 + stage * 10 + stage * stage * 2.6) * battleScale * (boss ? 1.68 : 1));
+  const atkScale = stage <= 6 ? 0.9 : (stage <= 12 ? 1.0 : 1.07);
+  const atk = Math.round((4 + stage * 1.2 + stage * stage * 0.18) * atkScale * (boss ? 1.48 : 1));
   // 推奨戦力と危険度（ワールドマップ表示用）
   const danger = Math.min(5, Math.ceil(stage / 4));
   const recommend = stage <= 1 ? "仲間1人〜"
@@ -1277,7 +1318,8 @@ function setupWorldmapTheme() {
   const star = nextWorldmapStar();
   const theme = star.theme || stageTheme(star.stage);
   const host = document.getElementById("worldmap-space");
-  host.style.background = `radial-gradient(circle at 60% 25%, ${theme.css}, #05030f 70%)`;
+  host.style.background = stageSpaceBackground(theme, "60% 25%");
+  host.style.backgroundSize = stageBackgroundSize(theme);
   if (wmScene.userData.planet) {
     setMaterialColor(wmScene.userData.planet.material, theme.secondary);
   }
@@ -1766,10 +1808,11 @@ function setupStageFlightBackground(star) {
   const theme = star.theme || stageTheme(star.stage);
   clearGroup(SH.stageBg);
   const host = document.getElementById("shooting-canvas");
-  host.style.background = `radial-gradient(circle at 50% 20%, ${theme.css}, #02020a 70%)`;
+  host.style.background = stageSpaceBackground(theme, "50% 20%");
+  host.style.backgroundSize = stageBackgroundSize(theme);
 
   const geo = new THREE.BufferGeometry();
-  const N = 220;
+  const N = 190 + (star.stage % 5) * 28;
   const pos = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) {
     pos[i*3] = (Math.random() - 0.5) * 14;
@@ -1781,7 +1824,7 @@ function setupStageFlightBackground(star) {
   points.userData = { type: "themeParticles", speed: 1.2 };
   SH.stageBg.add(points);
 
-  const propCount = star.boss ? 14 : 8;
+  const propCount = star.boss ? 18 : 8 + (star.stage % 4);
   for (let i = 0; i < propCount; i++) SH.stageBg.add(makeThemeProp(theme, i));
 }
 
@@ -2607,6 +2650,7 @@ const BT = {
   enemyUltimateShown: false,
   enemyAtkMul: 1, enemyDebuffTurns: 0, guardTurns: 0, barrier: 0, nextAttackMul: 1,
   synergy: null,
+  actorIndex: 0,
 };
 
 // ラスボス最終演出フラグ（Part2の土台）
@@ -2640,6 +2684,7 @@ function startBattle(star) {
     const a = ALLIES.find(x => x.id === id);
     return buildBattleMember(a, hpPlus, BT.synergy);
   });
+  BT.actorIndex = firstAliveActorIndex();
   recordPartyVisit(star);
   persist();
 
@@ -2701,19 +2746,41 @@ function buildBattleMember(a, hpPlus = 0, synergy = computeSynergies(save.party)
   };
 }
 
+function firstAliveActorIndex() {
+  return Math.max(0, BT.party.findIndex(m => !m.dead));
+}
+
+function currentBattleActor() {
+  return BT.party[BT.actorIndex] && !BT.party[BT.actorIndex].dead ? BT.party[BT.actorIndex] : null;
+}
+
+function resetBattleActor() {
+  BT.actorIndex = firstAliveActorIndex();
+}
+
+function advanceBattleActor() {
+  for (let i = BT.actorIndex + 1; i < BT.party.length; i++) {
+    if (!BT.party[i].dead) {
+      BT.actorIndex = i;
+      return true;
+    }
+  }
+  return false;
+}
+
 function renderParty() {
   const area = document.getElementById("party-area");
   area.innerHTML = "";
   BT.party.forEach((m, i) => {
     const el = document.createElement("div");
-    el.className = "party-member" + (m.dead ? " dead" : "");
+    el.className = "party-member" + (m.dead ? " dead" : "") + (i === BT.actorIndex && !m.dead ? " active" : "");
     el.id = `pm-${i}`;
     el.innerHTML = `
       <div class="pm-face">${faceHTML(m.face, allyImagePath(m))}</div>
       <div class="pm-name">${m.name}</div>
       <div class="pm-hp">${m.curHp}/${m.maxHp}</div>
       <div class="pm-meta">Lv.${m.level} / ★${m.rarity}</div>
-      <div class="pm-skill">技${(m.skills || []).length}・${m.bskill.name}</div>
+      <div class="pm-skill">技${(m.skills || []).length}・${(m.skills || []).map(k => SKILLS[k]?.name).filter(Boolean).join("/")}</div>
       <div class="hpbar pm-hpbar"><div style="width:${m.curHp/m.maxHp*100}%"></div></div>
     `;
     area.appendChild(el);
@@ -2744,6 +2811,7 @@ function skillReadyCount() {
 function renderBattleCommands(mode = "main", arg = null) {
   const area = document.getElementById("battle-commands");
   area.classList.toggle("item-mode", mode !== "main");
+  const actor = currentBattleActor();
   if (mode === "items") {
     area.innerHTML = ["smallHeal", "allHeal", "barrierOrb"].map(id => {
       const item = ITEM_DEFS[id];
@@ -2762,22 +2830,24 @@ function renderBattleCommands(mode = "main", arg = null) {
   }
   // 選んだキャラのスキル一覧から選ぶ
   if (mode === "skillList") {
-    const m = BT.party[arg];
-    if (!m || m.dead) { renderBattleCommands("skillMembers"); return; }
+    const m = BT.party[arg ?? BT.actorIndex];
+    if (!m || m.dead) { renderBattleCommands("main"); return; }
     const list = (m.skills || [m.skillKey]).map(k => {
       const s = SKILLS[k]; if (!s) return "";
-      return `<button class="btn cmd skill-use-btn" data-cmd="skill-use" data-mi="${arg}" data-sk="${k}">${s.name}<small>${s.element || s.desc.slice(0, 6)}</small></button>`;
+      return `<button class="btn cmd skill-use-btn" data-cmd="skill-use" data-mi="${BT.party.indexOf(m)}" data-sk="${k}">${s.name}<small>${s.element || s.desc}</small></button>`;
     }).join("");
-    area.innerHTML = `<div class="skill-owner">${m.face} ${m.name}</div>` + list + `<button class="btn cmd battle-back" data-cmd="skill-members">戻る</button>`;
+    area.innerHTML = `<div class="skill-owner">${faceHTML(m.face, allyImagePath(m))} ${m.name}のスキル</div>` + list + `<button class="btn cmd battle-back" data-cmd="skill-back">戻る</button>`;
     return;
   }
   // メイン
-  const canSkill = BT.party.some(m => !m.dead && (m.skills || []).length);
+  const canSkill = !!actor && (actor.skills || []).length;
+  const actorTitle = actor ? `${faceHTML(actor.face, allyImagePath(actor))} ${actor.name}の行動` : "行動できる仲間がいない";
   area.innerHTML = `
-    <button class="btn cmd" data-cmd="fight">たたかう</button>
-    <button class="btn cmd" data-cmd="skill" data-locked="${canSkill ? "false" : "true"}" ${canSkill ? "" : "disabled"}>スキル</button>
-    <button class="btn cmd" data-cmd="item">どうぐ <small>${battleItemTotal()}</small></button>
-    <button class="btn cmd" data-cmd="run">にげる</button>
+    <div class="turn-owner">${actorTitle}</div>
+    <button class="btn cmd" data-cmd="fight" ${actor ? "" : "disabled"}>たたかう<small>通常攻撃</small></button>
+    <button class="btn cmd" data-cmd="skill" data-locked="${canSkill ? "false" : "true"}" ${canSkill ? "" : "disabled"}>スキル<small>2つから選択</small></button>
+    <button class="btn cmd" data-cmd="item" ${actor ? "" : "disabled"}>どうぐ <small>${battleItemTotal()}</small></button>
+    <button class="btn cmd" data-cmd="run">にげる<small>70%</small></button>
   `;
 }
 function setEnemyHpBar() {
@@ -2801,7 +2871,7 @@ document.getElementById("battle-commands").addEventListener("click", (e) => {
 
 async function handleCommand(cmd) {
   if (cmd === "fight") return doFight();
-  if (cmd === "skill") return renderBattleCommands("skillMembers"); // キャラ選択へ
+  if (cmd === "skill") return renderBattleCommands("skillList", BT.actorIndex);
   if (cmd === "skill-back") return renderBattleCommands("main");
   if (cmd === "skill-members") return renderBattleCommands("skillMembers");
   if (cmd === "item") return doItem();
@@ -2811,7 +2881,7 @@ async function handleCommand(cmd) {
 
 // 選んだキャラが、選んだスキルを使う → 敵ターン
 async function doMemberSkill(mi, skillKey) {
-  const m = BT.party[mi];
+  const m = BT.party[mi ?? BT.actorIndex];
   if (!m || m.dead) { renderBattleCommands("main"); return; }
   const skill = SKILLS[skillKey] || m.bskill;
   BT.turnLock = true;
@@ -2820,13 +2890,53 @@ async function doMemberSkill(mi, skillKey) {
   renderParty();
   if (BT.enemyHp <= 0) return enemyDefeated();
   maybeShowBossUltimateCue();
-  await enemyTurn();
+  await finishActorAction();
 }
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 function enemySprite() { return document.getElementById("battle-enemy"); }
 
-async function doFight() { return attackRound(1.0, "こうげき"); }
+async function playBattleAction(m, message, type = "attack") {
+  const stage = document.getElementById("battle-action-stage");
+  if (!stage || !m) return;
+  clearTimeout(stage._timer);
+  stage.className = `battle-action-stage show ${type}`;
+  stage.innerHTML = `
+    <div class="battle-action-card">
+      <div class="battle-action-face">${faceHTML(m.face, allyImagePath(m))}</div>
+      <div class="battle-action-text">${escAttr(message)}</div>
+    </div>
+  `;
+  stage._timer = setTimeout(() => {
+    stage.className = "battle-action-stage";
+    stage.innerHTML = "";
+  }, type === "skill" ? 820 : 640);
+  await wait(type === "skill" ? 300 : 220);
+}
+
+async function doFight() {
+  const m = currentBattleActor();
+  if (!m) return;
+  BT.turnLock = true;
+  setCommands(false);
+  const normalMul = ((BT.synergy && BT.synergy.effects.normalAtkMul) || 1);
+  const { dmg, crit, buffed } = rollMemberDamage(m, normalMul);
+  await applyEnemyDamage(m, dmg, "こうげき", crit, buffed);
+  if (BT.enemyHp <= 0) return enemyDefeated();
+  await finishActorAction();
+}
+
+async function finishActorAction() {
+  renderParty();
+  if (advanceBattleActor()) {
+    BT.turnLock = false;
+    renderParty();
+    renderBattleCommands("main");
+    setCommands(true);
+    return;
+  }
+  await enemyTurn();
+}
 
 async function doSkill() {
   const actors = BT.party.filter(m => !m.dead && !m.skillUsed);
@@ -2869,7 +2979,8 @@ function maybeShowBossUltimateCue() {
   log(`${ultimate.name}！！`);
 }
 
-async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false, element = "物理") {
+async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false, element = "物理", showAction = true) {
+  if (showAction) await playBattleAction(m, `${m.name}の攻撃！`, "attack");
   const { mult, tag } = elementResult(element);
   dmg = Math.max(1, Math.round(dmg * mult));
   BT.enemyHp -= dmg;
@@ -2882,9 +2993,10 @@ async function applyEnemyDamage(m, dmg, label, crit = false, buffed = false, ele
 }
 
 async function useMemberSkill(m, skill = m.bskill || SKILLS.slash) {
-  log(`✦ ${m.name}の「${skill.name}」！`);
+  log(`✦ ${m.name}のスキル「${skill.name}」を発動！`);
+  await playBattleAction(m, `${m.name}のスキル「${skill.name}」を発動！`, "skill");
   playBattleSkillEffect();
-  await wait(120);
+  await wait(80);
   if (skill.kind === "heal") {
     const target = BT.party.filter(x => !x.dead).sort((a, b) => (a.curHp / a.maxHp) - (b.curHp / b.maxHp))[0];
     if (!target) return;
@@ -2912,14 +3024,14 @@ async function useMemberSkill(m, skill = m.bskill || SKILLS.slash) {
   if (skill.kind === "bigRandom") {
     if (Math.random() < 0.35) {
       const { dmg } = rollMemberDamage(m, skill.power);
-      return applyEnemyDamage(m, dmg, skill.name, true, false, skill.element);
+      return applyEnemyDamage(m, dmg, skill.name, true, false, skill.element, false);
     }
     const { dmg } = rollMemberDamage(m, 0.35);
-    return applyEnemyDamage(m, dmg, `${skill.name}（失敗）`, false, false, skill.element);
+    return applyEnemyDamage(m, dmg, `${skill.name}（失敗）`, false, false, skill.element, false);
   }
   const mult = skill.kind === "crit" ? skill.power : (skill.kind === "atkAll" ? skill.power * 1.15 : skill.power);
   const { dmg, crit, buffed } = rollMemberDamage(m, mult);
-  return applyEnemyDamage(m, dmg, skill.name, skill.kind === "crit" || crit, buffed, skill.element);
+  return applyEnemyDamage(m, dmg, skill.name, skill.kind === "crit" || crit, buffed, skill.element, false);
 }
 
 // 仲間が順番に攻撃
@@ -2946,6 +3058,7 @@ async function enemyTurn() {
     await wait(BATTLE_TURN_WAIT_MS);
     tickBattleEffects();
     applyTurnSynergyHeal();
+    resetBattleActor();
     renderParty();
     BT.turnLock = false; renderBattleCommands("main"); setCommands(true);
     return;
@@ -2965,8 +3078,9 @@ async function enemyTurn() {
   await wait(BATTLE_TURN_WAIT_MS);
   tickBattleEffects();
   applyTurnSynergyHeal();
-  renderParty();
   if (BT.party.every(m => m.dead)) return partyWipe();
+  resetBattleActor();
+  renderParty();
   BT.turnLock = false; renderBattleCommands("main"); setCommands(true);
 }
 
@@ -3037,7 +3151,7 @@ async function useBattleItem(id) {
   }
   renderParty();
   await wait(BATTLE_TURN_WAIT_MS);
-  await enemyTurn();
+  await finishActorAction();
 }
 
 async function doRun() {
@@ -3152,7 +3266,7 @@ function updateBattleSceneEnemy(enemy) {
   if (!BS.aura) return;
   const byCat = { bio: 0x66ff99, robo: 0x66ccff, villain: 0xff8a4a, concept: 0xc266ff };
   BS.aura.material.color.setHex((enemy && byCat[enemy.catKey]) || 0xff66cc);
-  BS.auraBase = enemy && enemy.boss ? 1.7 : 1.0;
+  BS.auraBase = enemy && enemy.boss ? 2.35 : 1.15;
   BS.aura.scale.setScalar(BS.auraBase);
 }
 
