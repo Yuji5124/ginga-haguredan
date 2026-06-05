@@ -50,8 +50,29 @@ function createThreeFallback() {
     setAttribute(name, attr) { this.attributes[name] = attr; return this; }
   }
   class BufferAttribute { constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; } }
-  class Material { constructor(opts = {}) { Object.assign(this, opts); } }
+  class Color {
+    constructor(hex = 0xffffff) { this.setHex(hex); }
+    setHex(hex = 0xffffff) {
+      this.hex = typeof hex === "number" ? hex : Number.parseInt(String(hex).replace("#", ""), 16) || 0xffffff;
+      return this;
+    }
+  }
+  class Material {
+    constructor(opts = {}) {
+      Object.assign(this, opts);
+      if ("color" in opts) this.color = new Color(opts.color);
+    }
+  }
+  class Texture {
+    constructor(image = null) { this.image = image; this.needsUpdate = false; }
+  }
+  class CanvasTexture extends Texture {
+    constructor(canvas) { super(canvas); this.needsUpdate = true; }
+  }
   const colorToCss = (color, fallback = "#bcd4ff") => {
+    if (color && typeof color === "object" && "hex" in color) {
+      return `#${color.hex.toString(16).padStart(6, "0").slice(-6)}`;
+    }
     if (typeof color === "number") return `#${color.toString(16).padStart(6, "0").slice(-6)}`;
     return color || fallback;
   };
@@ -135,8 +156,10 @@ function createThreeFallback() {
     WebGLRenderer, Scene, PerspectiveCamera, BufferGeometry: Geometry, BufferAttribute,
     PointsMaterial: Material, MeshStandardMaterial: Material, MeshBasicMaterial: Material,
     Points, Mesh, Group, AmbientLight: Light, DirectionalLight: Light, FogExp2,
+    Texture, CanvasTexture, AdditiveBlending: "additive",
     SphereGeometry: class extends Geometry { constructor(r = 0.5) { super("sphere", r); } },
     CircleGeometry: class extends Geometry { constructor(r = 0.5) { super("circle", r); } },
+    PlaneGeometry: class extends Geometry { constructor(w = 0.5, h = w) { super("plane", Math.max(w, h) / 2); this.width = w; this.height = h; } },
     ConeGeometry: class extends Geometry { constructor(r = 0.5) { super("cone", r); } },
     CylinderGeometry: class extends Geometry { constructor(r = 0.5) { super("cylinder", r); } },
     IcosahedronGeometry: class extends Geometry { constructor(r = 0.5) { super("icosahedron", r); } },
@@ -1468,7 +1491,7 @@ const STAGE_TIME = 24; // シューティング1ステージの秒数
 
 const MAX_HP = 3;
 const SHIP_R = 0.34; // 飛行船の当たり判定半径（見た目より小さめ）
-const FLIGHT_X_LIMIT = 5.2;
+const FLIGHT_BASE_X_LIMIT = 5.2;
 const FLIGHT_SHIP_Y = -3.15;
 const FLIGHT_SPAWN_Y = 4.55;
 const FLIGHT_DESPAWN_Y = -4.65;
@@ -1480,6 +1503,28 @@ const BATTLE_HIT_WAIT_MS = 200;
 const BATTLE_TURN_WAIT_MS = 260;
 const VICTORY_TO_SCOUT_MS = 550;
 const WIPE_RETURN_MS = 1100;
+
+function flightVisibleHalfX(z = FLIGHT_OBJECT_Z) {
+  const host = document.getElementById("shooting-canvas");
+  const aspect = (host?.clientWidth || 390) / Math.max(1, host?.clientHeight || 680);
+  const fov = SH.camera?.fov || 60;
+  const cameraZ = SH.camera?.position?.z ?? 12;
+  return Math.tan((fov * Math.PI) / 360) * Math.max(1, cameraZ - z) * aspect;
+}
+
+function flightXLimitFor(z = FLIGHT_OBJECT_Z, pad = 0) {
+  return Math.max(1.35, Math.min(FLIGHT_BASE_X_LIMIT, flightVisibleHalfX(z) - pad));
+}
+
+function randomFlightX(pad = 0, z = FLIGHT_OBJECT_Z) {
+  const limit = flightXLimitFor(z, pad);
+  return (Math.random() * 2 - 1) * limit;
+}
+
+function flightShipXLimit() {
+  const wingPad = (SH.wingL?.visible || SH.wingR?.visible) ? 1.7 : 0.95;
+  return flightXLimitFor(FLIGHT_OBJECT_Z, wingPad);
+}
 
 const SH = {
   renderer: null, scene: null, camera: null, raf: null,
@@ -1792,12 +1837,15 @@ function makeThemeProp(theme, i) {
   else geo = new THREE.IcosahedronGeometry(0.55 + (i % 3) * 0.18, 0);
 
   const mesh = new THREE.Mesh(geo, themedMaterial(color, theme.secondary));
-  mesh.position.set((Math.random() - 0.5) * 10.5, FLIGHT_SPAWN_Y + i * 1.1, -1.5 - (i % 4) * 1.1);
+  const z = -1.5 - (i % 4) * 1.1;
+  const edgePad = 1.2 + (i % 3) * 0.22;
+  mesh.position.set(randomFlightX(edgePad, z), FLIGHT_SPAWN_Y + i * 1.1, z);
   mesh.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
   mesh.userData = {
     type: "themeProp",
     drift: 0.45 + (i % 4) * 0.12,
     spin: 0.004 + (i % 5) * 0.003,
+    edgePad,
     resetY: FLIGHT_SPAWN_Y + 9 + Math.random() * 4,
   };
   return mesh;
@@ -1843,14 +1891,14 @@ function animateStageFlightBackground(dt, now) {
       o.rotation.z += o.userData.spin * 1.2;
       if (o.position.y < FLIGHT_DESPAWN_Y - 1.5) {
         o.position.y = o.userData.resetY;
-        o.position.x = (Math.random() - 0.5) * 10.5;
+        o.position.x = randomFlightX(o.userData.edgePad || 1.2, o.position.z);
       }
     }
   });
 }
 
 // 縦型航行：画面上から下へ流れるレーン
-const spawnX = () => (Math.random() - 0.5) * (FLIGHT_X_LIMIT * 1.8);
+const spawnX = (pad = 0.7, z = FLIGHT_OBJECT_Z) => randomFlightX(pad, z);
 const spawnTopY = () => FLIGHT_SPAWN_Y + Math.random() * 0.9;
 
 // red=true で赤い隕石（ダメージ2・出現率低め）
@@ -1864,7 +1912,7 @@ function spawnRock(red = false) {
       roughness: 1, flatShading: true,
     })
   );
-  m.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
+  m.position.set(spawnX(r + 0.18), spawnTopY(), FLIGHT_OBJECT_Z);
   m.userData = { type: "rock", r, hitR: r * 0.52, spin: (Math.random() - 0.5) * 0.08, dmg: red ? 2 : 1 };
   SH.scene.add(m); SH.rocks.push(m);
 }
@@ -1901,7 +1949,7 @@ function spawnCrystal(kind = "normal") {
     m = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0),
       new THREE.MeshStandardMaterial({ color: 0x7df0ff, emissive: 0x33c8ff, emissiveIntensity: 0.85, metalness: 0.4 }));
   }
-  m.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
+  m.position.set(spawnX(r * 1.15 + 0.12), spawnTopY(), FLIGHT_OBJECT_Z);
   m.userData = { type: "crystal", kind, r, hitR: r + 0.15 };
   SH.scene.add(m); SH.crystals.push(m);
 }
@@ -1918,8 +1966,9 @@ function spawnEnemy() {
   );
   eye.position.z = 0.12;
   g.add(eye);
-  g.position.set(spawnX(), spawnTopY(), FLIGHT_OBJECT_Z);
-  g.userData = { type: "enemy", r: 1.05, hitR: 0.76, hp: 2 };
+  const enemyR = 1.05;
+  g.position.set(spawnX(enemyR + 0.18), spawnTopY(), FLIGHT_OBJECT_Z);
+  g.userData = { type: "enemy", r: enemyR, hitR: 0.76, hp: 2 };
   SH.scene.add(g); SH.enemies.push(g);
 }
 // 自機の青い極太レーザー＋僚機の細い弾
@@ -2023,7 +2072,9 @@ function updateShooting(dt, now) {
   animateStageFlightBackground(dt, now);
 
   // 船移動（縦型：画面下で左右移動中心）
-  if (SH.keyDir) SH.targetX = clamp(SH.targetX + SH.keyDir * 8.5 * dt, -FLIGHT_X_LIMIT, FLIGHT_X_LIMIT);
+  const shipLimit = flightShipXLimit();
+  if (SH.keyDir) SH.targetX = clamp(SH.targetX + SH.keyDir * 8.5 * dt, -shipLimit, shipLimit);
+  SH.targetX = clamp(SH.targetX, -shipLimit, shipLimit);
   SH.ship.position.x += (SH.targetX - SH.ship.position.x) * Math.min(1, dt * 13);
   SH.ship.position.y = FLIGHT_SHIP_Y + Math.sin(now / 260) * 0.045;
   SH.ship.position.z = FLIGHT_OBJECT_Z;
@@ -2206,7 +2257,8 @@ function worldToHudPoint(pos) {
   if (!host || !pos) return null;
   const w = host.clientWidth || 1;
   const h = host.clientHeight || 1;
-  const x = ((pos.x + FLIGHT_X_LIMIT) / (FLIGHT_X_LIMIT * 2)) * w;
+  const limit = flightXLimitFor(pos.z ?? FLIGHT_OBJECT_Z, 0);
+  const x = ((pos.x + limit) / (limit * 2)) * w;
   const y = (1 - (pos.y - FLIGHT_DESPAWN_Y) / (FLIGHT_SPAWN_Y - FLIGHT_DESPAWN_Y)) * h;
   return { x: clamp(x, 24, w - 24), y: clamp(y, 56, h - 80) };
 }
@@ -2433,7 +2485,8 @@ function drawMinimap() {
   ctx.clearRect(0, 0, cv.width, cv.height);
   const W = cv.width, H = cv.height;
   // y[上..下] をミニマップ上→下、x[-limit..limit] を左→右
-  const px = (x) => (x + FLIGHT_X_LIMIT) / (FLIGHT_X_LIMIT * 2) * W;
+  const mapXLimit = flightXLimitFor(FLIGHT_OBJECT_Z, 0);
+  const px = (x) => (x + mapXLimit) / (mapXLimit * 2) * W;
   const py = (y) => (1 - (y - FLIGHT_DESPAWN_Y) / (FLIGHT_SPAWN_Y - FLIGHT_DESPAWN_Y)) * H;
   const dot = (x, y, color, s = 2) => { ctx.fillStyle = color; ctx.fillRect(px(x) - s / 2, py(y) - s / 2, s, s); };
   SH.crystals.forEach(o => {
@@ -2454,7 +2507,8 @@ function bindShootingInput() {
   const move = (clientX) => {
     const rect = host.getBoundingClientRect();
     const nx = ((clientX - rect.left) / rect.width) * 2 - 1;        // -1..1
-    SH.targetX = clamp(nx * FLIGHT_X_LIMIT, -FLIGHT_X_LIMIT, FLIGHT_X_LIMIT);
+    const limit = flightShipXLimit();
+    SH.targetX = clamp(nx * limit, -limit, limit);
     SH.targetY = FLIGHT_SHIP_Y;
   };
   host.addEventListener("touchmove", (e) => { e.preventDefault(); move(e.touches[0].clientX); }, { passive: false });
