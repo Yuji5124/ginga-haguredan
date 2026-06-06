@@ -174,8 +174,11 @@ function createThreeFallback() {
 // -------------------------------------------------------------
 
 const TOTAL_CHARACTERS = 60;
-const ALLY_IMAGE_IMPLEMENTED_COUNT = 20;
+const ALLY_IMAGE_IMPLEMENTED_COUNT = TOTAL_CHARACTERS;
 const FINAL_BOSS_UNLOCK_COUNT = 50;
+const SPECIAL_FINAL_ALLY_ID = "c60";
+const HAGURE_ORCA_ASSET = "characters/c60";
+const PLAYER_SHOOTING_SHIP_ASSET = "ships/player_hagure_airship_orca";
 const MAX_ALLY_RARITY = 10;
 
 // レア度ごとのスカウト設定（必要クリスタル / 基本成功率）
@@ -212,6 +215,39 @@ function voiceForRarity(r) {
   if (r <= 6) return { ok: "よし、仲間になろう！",       ng: "今回は見送るよ",         bye: "縁があったら また頼む" };
   if (r <= 8) return { ok: "面白い、ついて行こう",       ng: "まだ その時じゃない",     bye: "次に会う時を楽しみにな" };
   return       { ok: "我が力、貸し与えよう",           ng: "汝には まだ早い",         bye: "星々の彼方で 再び会おう" };
+}
+
+const DEFAULT_CHARACTER_LINES = {
+  joinLine: "おれも連れてってくれ！",
+  leaveLine: "ここで少し、やることができたんだ。",
+  homeLine: "また来たのか。銀河は広いな。",
+};
+const ROLE_LINES = {
+  attacker: { joinLine: "おれも連れてってくれ！", leaveLine: "この星で守りたいものを見つけた。", homeLine: "腕はなまってない。銀河はどうだ？" },
+  support: { joinLine: "一緒に行くよ。役に立てるはず。", leaveLine: "ここで誰かを助けてから行くね。", homeLine: "また会えたね。ここも悪くないよ。" },
+  defender: { joinLine: "守る場所があるなら、ついて行く。", leaveLine: "この星の守りは、ぼくに任せて。", homeLine: "ここは大丈夫。そっちはどう？" },
+  speed: { joinLine: "先に行って道を見てくる！", leaveLine: "このあたりの航路を調べておく。", homeLine: "いいタイミングだ。新しい抜け道を見つけたよ。" },
+  trick: { joinLine: "面白そうだね。混ぜてよ。", leaveLine: "ここで少し、不思議なことを試したい。", homeLine: "また来たのか。ちょうど退屈してた。" },
+  debuff: { joinLine: "敵の調子を崩すなら任せて。", leaveLine: "この星の嫌な気配をほどいておく。", homeLine: "空気が軽くなっただろう？" },
+  cleaner: { joinLine: "散らかった航路なら片づけるよ。", leaveLine: "この星を少しきれいにしていく。", homeLine: "前より歩きやすくなったはずだよ。" },
+  weak: { joinLine: "ぼくでも、行っていいのかな。", leaveLine: "ここで少し、強くなってみる。", homeLine: "まだ弱いけど、前より平気だ。" },
+  growth: { joinLine: "まだまだだけど、連れてって！", leaveLine: "この星で少し育ってから追いつくよ。", homeLine: "見て。ちょっと大きくなった。" },
+  healer: { joinLine: "傷ついたら、わたしが見るよ。", leaveLine: "ここにも手当てが必要な子がいるの。", homeLine: "無理してない？ 少し休んでいって。" },
+  luck: { joinLine: "いい流れが来てる。一緒に行こう。", leaveLine: "この星の運を少し整えておく。", homeLine: "今日はいい日だよ。たぶんね。" },
+  mystery: { joinLine: "その旅、見届けてみたい。", leaveLine: "この星には、まだ謎が残っている。", homeLine: "答えはまだない。でも、悪くない。" },
+  time: { joinLine: "今なら間に合う。行こう。", leaveLine: "この星の時間を少し直しておく。", homeLine: "またこの時間に来たんだね。" },
+  leader: { joinLine: "はぐれ団か。ならば共に行こう。", leaveLine: "ここにも導くべき声がある。", homeLine: "旅は続いているな。よし。" },
+  creator: { joinLine: "その未来、少し作ってみたい。", leaveLine: "この星に小さな芽を残していく。", homeLine: "芽はまだ育っている。君たちもな。" },
+  ship: { joinLine: "航路確認。みんなを乗せます。", leaveLine: "この星の空を、少し見守ります。", homeLine: "航行準備はいつでもできています。" },
+};
+
+function characterLines(entry) {
+  const lines = ROLE_LINES[entry.role] || DEFAULT_CHARACTER_LINES;
+  return {
+    joinLine: entry.joinLine || lines.joinLine || DEFAULT_CHARACTER_LINES.joinLine,
+    leaveLine: entry.leaveLine || lines.leaveLine || DEFAULT_CHARACTER_LINES.leaveLine,
+    homeLine: entry.homeLine || lines.homeLine || DEFAULT_CHARACTER_LINES.homeLine,
+  };
 }
 
 // 仲間60人の正式カタログ。ID/名前/レア度/ロールはここを正とする
@@ -390,6 +426,8 @@ const ALLIES = CHARACTER_CATALOG
   const skillKey = SKILL_KEYS[(no - 1) % SKILL_KEYS.length];
   const tags = tagsForAlly(entry, skillKey, face, setting, skill);
   const skills = allySkillSet(no, skillKey);
+  const lines = characterLines(entry);
+  const voice = voiceForRarity(rarity);
   return {
     id, name: entry.name, face, img: id, rarity, role: entry.role, roleLabel: role.label, setting, description: setting, skill,
     tag: tags.join(" / "),
@@ -404,7 +442,10 @@ const ALLIES = CHARACTER_CATALOG
     bskill: SKILLS[skillKey],           // 戦闘スキル（シグネチャ）
     passive: PASSIVES[(no - 1) % PASSIVES.length],
     navBonus: NAV_DEFS[NAV_ORDER[(no - 1) % NAV_ORDER.length]],
-    voice: voiceForRarity(rarity),
+    joinLine: lines.joinLine,
+    leaveLine: lines.leaveLine,
+    homeLine: lines.homeLine,
+    voice: { ...voice, ok: lines.joinLine, bye: lines.leaveLine },
   };
 });
 
@@ -437,6 +478,7 @@ const STAGE_THEMES = [
   { key: "lastgear",    label: "ラストギア星図", primary: 0xff3344, secondary: 0x150309, accent: 0xffd35a, css: "#070105", prop: "gear",   particle: 0xff4455 },
 ];
 
+const STAGE_IMAGE_COUNT = 20;
 const stageTheme = (stage) => STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
 const hexCss = (color) => `#${color.toString(16).padStart(6, "0")}`;
 function rgbaCss(color, alpha) {
@@ -465,6 +507,34 @@ function stageSpaceBackground(theme, focus = "50% 20%") {
     `radial-gradient(circle at 82% 68%, ${rgbaCss(theme.accent, 0.30)}, transparent 32%)`,
     `linear-gradient(180deg, ${theme.css} 0%, #02020a 74%)`,
   ].join(",");
+}
+function stageImageAsset(stage) {
+  const n = Number(stage);
+  return Number.isInteger(n) && n >= 1 && n <= STAGE_IMAGE_COUNT ? `stars/${n}` : null;
+}
+function applyStageBackdrop(host, star, focus = "50% 20%", darkness = 0.68) {
+  if (!host || !star) return;
+  const theme = star.theme || stageTheme(star.stage);
+  const base = stageSpaceBackground(theme, focus);
+  host.classList.remove("has-stage-art");
+  host.style.background = base;
+  host.style.backgroundSize = stageBackgroundSize(theme);
+  host.style.backgroundPosition = "center";
+
+  if (!star.image) return;
+  const img = tryImage(star.image);
+  const apply = () => {
+    if (img.naturalWidth <= 0) return;
+    host.classList.add("has-stage-art");
+    host.style.background = [
+      `linear-gradient(180deg, rgba(2, 3, 10, ${darkness}), rgba(2, 2, 10, 0.9))`,
+      `url("assets/${star.image}.png")`,
+      base,
+    ].join(",");
+    host.style.backgroundSize = `cover, cover, ${stageBackgroundSize(theme)}`;
+    host.style.backgroundPosition = "center";
+  };
+  if (img.complete) apply(); else img.addEventListener("load", apply, { once: true });
 }
 
 const BOSS_IMAGE_BY_STAGE = {
@@ -546,11 +616,54 @@ const RAW_STAGES = [
   [20,"運命固定装置・最深部",   "⚙️", "運命固定装置ラストギア",     "🕰️", "concept", "フェーズ制。最後のボス"],
 ];
 
+const STAGE_GIMMICKS = {
+  meteor: { label: "隕石帯", desc: "隕石や宇宙ゴミが多く流れる", notice: "METEOR BELT" },
+  speed: { label: "高速航路", desc: "背景と障害物の速度が上がる", notice: "HIGH SPEED" },
+  narrowLane: { label: "狭い通路", desc: "左右の移動範囲が狭くなる", notice: "NARROW LANE" },
+  enemyRush: { label: "敵ラッシュ", desc: "小型敵が多く出現する", notice: "ENEMY RUSH" },
+  largeEnemy: { label: "大型敵", desc: "耐久力の高い敵が出現する", notice: "HEAVY TARGET" },
+  heal: { label: "回復航路", desc: "回復クリスタルが出やすい", notice: "RECOVERY ZONE" },
+  rareScout: { label: "スカウトチャンス", desc: "レア仲間に出会いやすい", notice: "SCOUT CHANCE" },
+  danger: { label: "危険宙域", desc: "被弾ダメージが大きい", notice: "DANGER ZONE" },
+  bossPreview: { label: "ボス前哨戦", desc: "強敵と予兆攻撃が混じる", notice: "BOSS SHADOW" },
+  calmBeforeFinal: { label: "最終航路", desc: "敵は少ないが緊張感が高い", notice: "FINAL APPROACH" },
+};
+const STAGE_GIMMICK_BY_STAGE = {
+  1: "meteor",
+  2: "narrowLane",
+  3: "rareScout",
+  4: "heal",
+  5: "meteor",
+  6: "speed",
+  7: "narrowLane",
+  8: "enemyRush",
+  9: "enemyRush",
+  10: "largeEnemy",
+  11: "meteor",
+  12: "narrowLane",
+  13: "rareScout",
+  14: "largeEnemy",
+  15: "danger",
+  16: "enemyRush",
+  17: "speed",
+  18: "danger",
+  19: "bossPreview",
+  20: "calmBeforeFinal",
+};
+function stageGimmick(stageOrStar) {
+  const key = typeof stageOrStar === "object"
+    ? stageOrStar.gimmick
+    : STAGE_GIMMICK_BY_STAGE[stageOrStar];
+  return STAGE_GIMMICKS[key] || STAGE_GIMMICKS.meteor;
+}
+
 // RAW_STAGES から STARS（ステージ）と ENEMIES（敵）を生成
 const STARS = [];
 const ENEMIES = {};
 RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const id = "s" + stage, eid = "e" + stage;
+  const starImage = stageImageAsset(stage);
+  const starImagePath = starImage ? `assets/${starImage}.png` : null;
   const bossImage = BOSS_IMAGE_BY_STAGE[stage] || null;
   const bossImagePath = bossImage ? `assets/${bossImage}.png` : null;
   const ultimate = bossUltimateForName(eName);
@@ -572,6 +685,8 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const rMin = Math.max(1, Math.min(MAX_ALLY_RARITY, center - 1));
   const rMax = Math.max(rMin, Math.min(MAX_ALLY_RARITY, center + 1));
   const theme = stageTheme(stage);
+  const gimmick = STAGE_GIMMICK_BY_STAGE[stage] || "meteor";
+  const flightGimmick = stageGimmick(stage);
   // 系統ごとの弱点・耐性（弱点は攻撃スキルで突けるもの＝物理/炎/光/闇 に限定）
   const WR = {
     robo:    { weak: "炎",   resist: "物理" },
@@ -582,7 +697,7 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const wr = WR[cat] || { weak: "物理", resist: "氷" };
   const elevel = Math.ceil(stage / 2); // 2ステージごとに敵Lv+1（表示は控えめ）
   ENEMIES[eid] = { name: eName, face: eFace, img: eid, image: bossImage, imagePath: bossImagePath, ultimate, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss, weak: wr.weak, resist: wr.resist, level: elevel };
-  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, enemyImage: bossImage, enemyImagePath: bossImagePath, enemyUltimate: ultimate, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme, danger, recommend });
+  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, image: starImage, imagePath: starImagePath, enemyImage: bossImage, enemyImagePath: bossImagePath, enemyUltimate: ultimate, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme, danger, recommend, gimmick, flightGimmickLabel: flightGimmick.label, flightGimmickDesc: flightGimmick.desc });
 });
 
 // ラスボスの登場セリフ
@@ -620,10 +735,15 @@ const ITEM_DEFS = {
   smallHeal:   { id: "smallHeal",   name: "小回復カプセル", price: 10, icon: "🧪", desc: "戦闘中、HPが少ない味方1人を20回復", use: "battle" },
   allHeal:     { id: "allHeal",     name: "全体回復パック", price: 25, icon: "🎒", desc: "戦闘中、味方全員のHPを10回復", use: "battle" },
   barrierOrb:  { id: "barrierOrb",  name: "バリアオーブ",   price: 30, icon: "🟣", desc: "戦闘中、次に受けるダメージを1軽減", use: "battle" },
+  focusCharm:  { id: "focusCharm",  name: "集中チャーム",   price: 18, icon: "🎯", desc: "戦闘中、次の攻撃を少し強化", use: "battle" },
+  coolSpray:   { id: "coolSpray",   name: "冷却スプレー",   price: 18, icon: "❄️", desc: "戦闘中、敵の攻撃力を少し下げる", use: "battle" },
   scoutBeacon: { id: "scoutBeacon", name: "スカウトビーコン", price: 40, icon: "📡", desc: "次のスカウト挑戦の成功率 +10%", use: "auto" },
   spareEnergy: { id: "spareEnergy", name: "予備エネルギー", price: 20, icon: "🔋", desc: "次の航行開始時、飛行船HP +1", use: "auto" },
+  crystalMagnet: { id: "crystalMagnet", name: "クリスタル磁石", price: 18, icon: "🧲", desc: "次の航行中、クリスタルを拾いやすくなる", use: "auto" },
+  reserveBomb: { id: "reserveBomb", name: "予備ボム", price: 22, icon: "💣", desc: "次の航行開始時、BOMB +1", use: "auto" },
 };
-const ITEM_ORDER = ["smallHeal", "allHeal", "barrierOrb", "scoutBeacon", "spareEnergy"];
+const ITEM_ORDER = ["smallHeal", "allHeal", "barrierOrb", "focusCharm", "coolSpray", "scoutBeacon", "spareEnergy", "crystalMagnet", "reserveBomb"];
+const BATTLE_ITEM_IDS = ITEM_ORDER.filter(id => ITEM_DEFS[id].use === "battle");
 const defaultItems = () => Object.fromEntries(ITEM_ORDER.map(id => [id, 0]));
 
 // 直前の航行で獲得したボーナス（次の戦闘/スカウトに反映）。なければ null
@@ -787,7 +907,10 @@ const defaultSave = () => ({
   discovered: [STARTER_ID],     // 図鑑：発見済み（出会った）仲間ID
   recruited: [STARTER_ID],      // 図鑑：加入済み（スカウト成功）仲間ID
   dexStats: starterDexStats(),   // 図鑑：出会い・成功・別れなどの記録
+  leftBehind: {},                // 星に残った仲間 { starId: [allyId] }
   items: defaultItems(),         // ショップで購入したアイテム所持数
+  finalAllyUnlocked: false,      // c60は最終演出でのみ特別加入
+  clearDataSaved: false,
 });
 
 let save = loadSave();
@@ -808,16 +931,24 @@ function loadSave() {
       data.party = (data.party || []).filter(id => valid.has(id));
       data.discovered = (data.discovered || []).filter(id => valid.has(id));
       data.recruited = (data.recruited || []).filter(id => valid.has(id));
+      if (!data.finalAllyUnlocked) {
+        data.party = data.party.filter(id => id !== SPECIAL_FINAL_ALLY_ID);
+        data.discovered = data.discovered.filter(id => id !== SPECIAL_FINAL_ALLY_ID);
+        data.recruited = data.recruited.filter(id => id !== SPECIAL_FINAL_ALLY_ID);
+        if (data.dexStats && typeof data.dexStats === "object") delete data.dexStats[SPECIAL_FINAL_ALLY_ID];
+      }
       if (data.party.length === 0) data.party = [STARTER_ID];
       if (!data.discovered.includes(STARTER_ID)) data.discovered.push(STARTER_ID);
       if (!data.recruited.includes(STARTER_ID)) data.recruited.push(STARTER_ID);
       ensureDexStats(data);
       data.items = Object.assign(defaultItems(), data.items || {});
+      normalizeLeftBehind(data);
       return data;
     }
   } catch (e) { console.warn("save load failed", e); }
   const fresh = defaultSave();
   ensureDexStats(fresh);
+  normalizeLeftBehind(fresh);
   return fresh;
 }
 function persist() {
@@ -827,6 +958,7 @@ function persist() {
 function resetSave() {
   save = defaultSave();
   ensureDexStats(save);
+  normalizeLeftBehind(save);
   persist();
 }
 
@@ -878,6 +1010,55 @@ function starRecordLabel(star = currentStar) {
   return star ? `${star.stage}. ${star.name}` : null;
 }
 
+function normalizeLeftBehind(data = save) {
+  const valid = new Set(ALLIES.map(a => a.id));
+  const source = data.leftBehind && typeof data.leftBehind === "object" ? data.leftBehind : {};
+  const next = {};
+  STARS.forEach(star => {
+    const raw = source[star.id];
+    const ids = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    const unique = Array.from(new Set(ids.filter(id => valid.has(id))));
+    if (unique.length) next[star.id] = unique;
+  });
+  data.leftBehind = next;
+  return next;
+}
+
+function removeLeftBehindAlly(id, data = save) {
+  if (!id || !data.leftBehind) return;
+  Object.keys(data.leftBehind).forEach(starId => {
+    data.leftBehind[starId] = (data.leftBehind[starId] || []).filter(allyId => allyId !== id);
+    if (data.leftBehind[starId].length === 0) delete data.leftBehind[starId];
+  });
+}
+
+function markAllyLeftBehind(id, star = currentStar) {
+  if (!id || !star) return;
+  normalizeLeftBehind(save);
+  if (!save.leftBehind[star.id]) save.leftBehind[star.id] = [];
+  if (!save.leftBehind[star.id].includes(id)) save.leftBehind[star.id].push(id);
+}
+
+function leftBehindAlliesForStar(star) {
+  if (!star) return [];
+  const party = new Set(save.party || []);
+  return ((save.leftBehind && save.leftBehind[star.id]) || [])
+    .filter(id => !party.has(id))
+    .map(id => allyById(id))
+    .filter(Boolean);
+}
+
+function leftBehindStarLine(star) {
+  const allies = leftBehindAlliesForStar(star);
+  if (!allies.length) return "";
+  return `<div class="star-left-behind">この星に残った仲間：${allies.map(a => escAttr(a.name)).join("、")}</div>`;
+}
+
+function showLeftBehindHomeLine(star) {
+  const [ally] = leftBehindAlliesForStar(star);
+  if (ally && save.cleared.includes(star.id)) toast(`${ally.name}「${ally.homeLine}」`);
+}
+
 // 図鑑（発見済み）に登録された正式仲間ID c1〜c60 の人数。重複は元々なし／データ無しでも0
 function heroCount() {
   return (save.discovered || []).filter(isRosterAllyId).length;
@@ -902,9 +1083,25 @@ function escAttr(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
-function assetImageHTML(path, fallback = "", className = "") {
+function replaceAssetWithFallback(img) {
+  const paths = String(img.dataset.fallbackPaths || "").split("|").filter(Boolean);
+  const next = paths.shift();
+  if (next) {
+    img.dataset.fallbackPaths = paths.join("|");
+    img.src = `assets/${next}.png`;
+    return;
+  }
+  img.replaceWith(document.createTextNode(img.dataset.fallback || ""));
+}
+function stackedAssetImageHTML(paths, fallback = "", className = "") {
+  const list = (Array.isArray(paths) ? paths : [paths]).filter(Boolean);
+  if (!list.length) return fallback;
+  const [first, ...rest] = list;
   const cls = className ? ` class="${escAttr(className)}"` : "";
-  return `<img src="assets/${path}.png" alt=""${cls} data-fallback="${escAttr(fallback)}" onerror="this.replaceWith(document.createTextNode(this.dataset.fallback))">`;
+  return `<img src="assets/${first}.png" alt=""${cls} data-fallback="${escAttr(fallback)}" data-fallback-paths="${escAttr(rest.join("|"))}" onerror="replaceAssetWithFallback(this)">`;
+}
+function assetImageHTML(path, fallback = "", className = "") {
+  return stackedAssetImageHTML([path], fallback, className);
 }
 // 絵文字 or 画像のHTMLを返す（画像が読めなければ絵文字を表示）
 function faceHTML(emoji, path) {
@@ -912,6 +1109,10 @@ function faceHTML(emoji, path) {
   const probe = tryImage(path);
   if (probe.complete && probe.naturalWidth <= 0) return emoji;
   return assetImageHTML(path, emoji);
+}
+function starVisualHTML(star, className = "") {
+  if (!star) return "";
+  return stackedAssetImageHTML([star.image, star.enemyImage], star.icon, className);
 }
 
 // 装飾用PNGスロット：画像があれば表示しフォールバックを隠す（無ければ従来表示のまま）
@@ -945,14 +1146,23 @@ function setSlotImage(selector, paths) {
     if (img.complete) apply(); else img.addEventListener("load", apply, { once: true });
   });
 }
+function setStarterPartyImages() {
+  document.querySelectorAll(".starter-party .party-card").forEach((card, i) => {
+    const icon = card.querySelector(".party-icon");
+    if (!icon) return;
+    const ally = allyById(`c${i + 1}`);
+    if (ally) icon.innerHTML = faceHTML(ally.face, allyImagePath(ally));
+  });
+}
 // 各画面の装飾PNGを反映（PNGが無ければ何もしない＝従来表示）
 function applyAssetImages() {
   setBgImage(".title-bg", "backgrounds/title_space_vertical");
   // ロゴは仕様の logo/ を優先、無ければ title/ も試す
   setSlotImage(".game-logo", ["logo/logo_main", "title/logo_main"]);
-  setSlotImage(".ship-character", "ships/ship_default");
+  setSlotImage(".ship-character", HAGURE_ORCA_ASSET);
   setSlotImage(".weak-hero", "title/hero_main");
-  setSlotImage(".wm-ship", "ships/ship_default");
+  setSlotImage(".wm-ship", HAGURE_ORCA_ASSET);
+  setStarterPartyImages();
 }
 
 // -------------------------------------------------------------
@@ -1341,8 +1551,7 @@ function setupWorldmapTheme() {
   const star = nextWorldmapStar();
   const theme = star.theme || stageTheme(star.stage);
   const host = document.getElementById("worldmap-space");
-  host.style.background = stageSpaceBackground(theme, "60% 25%");
-  host.style.backgroundSize = stageBackgroundSize(theme);
+  applyStageBackdrop(host, star, "60% 25%", 0.56);
   if (wmScene.userData.planet) {
     setMaterialColor(wmScene.userData.planet.material, theme.secondary);
   }
@@ -1426,9 +1635,11 @@ function renderStarList() {
     const recoHtml = (!star.boss || (star.boss && !heroGate))
       ? `<div class="star-reco">推奨：${star.recommend}　危険度：<span class="star-danger">${dangerStars}</span>${cleared ? "　🔁再挑戦OK" : ""}</div>`
       : "";
-    const iconHtml = star.enemyImage
-      ? `<div class="star-boss-thumb">${faceHTML(star.icon, star.enemyImage)}</div>`
-      : `<div class="star-icon">${star.icon}</div>`;
+    const flightGimmickHtml = (!star.boss || !heroGate)
+      ? `<div class="star-gimmick">航行：${star.flightGimmickLabel} / ${star.flightGimmickDesc}</div>`
+      : "";
+    const leftBehindHtml = leftBehindStarLine(star);
+    const iconHtml = `<div class="star-thumb">${starVisualHTML(star, "star-thumb-img")}</div>`;
     card.innerHTML = `
       <div class="star-route"></div>
       ${iconHtml}
@@ -1436,6 +1647,8 @@ function renderStarList() {
         <div class="star-name">${star.boss ? "👑 " : ""}${star.stage}. ${star.name}</div>
         <div class="star-desc">${descHtml}</div>
         ${recoHtml}
+        ${flightGimmickHtml}
+        ${leftBehindHtml}
       </div>
       ${badgeHtml}
     `;
@@ -1452,19 +1665,30 @@ function renderStarList() {
 let currentStar = null;
 function startStage(star) {
   currentStar = star;
+  showLeftBehindHomeLine(star);
   showPreflight(star);
 }
 
 // 航行前：今回の仲間効果を表示 → 「航行開始」で出発
 function showPreflight(star) {
   const eff = computeNavEffects(save.party);
+  applyStageBackdrop(document.getElementById("screen-preflight"), star, "50% 28%", 0.62);
   document.getElementById("preflight-star").textContent = `${star.icon} ${star.name} へ`;
   const bossEl = document.getElementById("preflight-boss");
   if (bossEl) {
-    bossEl.hidden = !star.enemyImage;
-    bossEl.innerHTML = star.enemyImage ? faceHTML(star.icon, star.enemyImage) : "";
+    const visualPaths = [star.image, star.enemyImage].filter(Boolean);
+    bossEl.hidden = visualPaths.length === 0;
+    bossEl.classList.toggle("is-stage-art", !!star.image);
+    bossEl.innerHTML = visualPaths.length ? stackedAssetImageHTML(visualPaths, star.icon) : "";
   }
   const list = document.getElementById("preflight-list");
+  const gimmick = stageGimmick(star);
+  const gimmickHtml = `
+    <div class="pf-row pf-gimmick">
+      <span class="pf-face">✦</span>
+      <span class="pf-name">航行ギミック</span>
+      <span class="pf-eff">${gimmick.label}：${gimmick.desc}</span>
+    </div>`;
   const navHtml = eff.labels.length
     ? eff.labels.map(l => `
         <div class="pf-row">
@@ -1473,7 +1697,7 @@ function showPreflight(star) {
           <span class="pf-eff">${l.label}</span>
         </div>`).join("")
     : `<div class="pf-row"><span class="pf-eff">特別な効果なし</span></div>`;
-  list.innerHTML = navHtml + renderSynergyPanel(eff.synergy);
+  list.innerHTML = gimmickHtml + navHtml + renderSynergyPanel(eff.synergy);
   show("preflight");
 }
 
@@ -1503,6 +1727,11 @@ const BATTLE_HIT_WAIT_MS = 200;
 const BATTLE_TURN_WAIT_MS = 260;
 const VICTORY_TO_SCOUT_MS = 550;
 const WIPE_RETURN_MS = 1100;
+let activeFlightGimmick = null;
+
+function activeFlightLaneMul() {
+  return activeFlightGimmick === "narrowLane" ? 0.58 : 1;
+}
 
 function flightVisibleHalfX(z = FLIGHT_OBJECT_Z) {
   const host = document.getElementById("shooting-canvas");
@@ -1513,7 +1742,8 @@ function flightVisibleHalfX(z = FLIGHT_OBJECT_Z) {
 }
 
 function flightXLimitFor(z = FLIGHT_OBJECT_Z, pad = 0) {
-  return Math.max(1.35, Math.min(FLIGHT_BASE_X_LIMIT, flightVisibleHalfX(z) - pad));
+  const base = Math.max(1.35, Math.min(FLIGHT_BASE_X_LIMIT, flightVisibleHalfX(z) - pad));
+  return Math.max(1.25, base * activeFlightLaneMul());
 }
 
 function randomFlightX(pad = 0, z = FLIGHT_OBJECT_Z) {
@@ -1540,6 +1770,8 @@ const SH = {
   mission: null, missionProgress: 0, missionDone: false, missionFailed: false,
   // 仲間の航行効果
   nav: null, shieldLeft: 0,
+  gimmick: null,
+  pickupBonus: 0,
   // 被弾無敵時間（i-frames）
   invulnUntil: 0,
 };
@@ -1560,7 +1792,8 @@ const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
 function initShooting() {
   const host = document.getElementById("shooting-canvas");
-  SH.renderer = new THREE.WebGLRenderer({ antialias: true });
+  SH.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  SH.renderer.setClearColor(0x000000, 0);
   SH.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   resizeRenderer(SH.renderer, host);
   host.appendChild(SH.renderer.domElement);
@@ -1619,18 +1852,20 @@ function buildWingman(color) {
 }
 
 
-const ORCA_DARK = 0x172033;
-const ORCA_BLACK = 0x0b1020;
-const ORCA_WHITE = 0xe8eef5;
-const ORCA_GRAY = 0x6f7f91;
-const COCKPIT_BLUE = 0x39c8ff;
-const THRUSTER_BLUE = 0x42dfff;
-const WARM_LIGHT = 0xffb347;
-const FLAG_RED = 0xb84a4a;
-const PATCH_BRASS = 0xb98a45;
+const ORCA_BLACK = 0x101622;
+const ORCA_DARK = 0x1a2336;
+const ORCA_WHITE = 0xeef4fb;
+const ORCA_SOFT_GRAY = 0x91a0b2;
+const COCKPIT_BLUE = 0x3cc8ff;
+const THRUSTER_BLUE = 0x51dfff;
+const ENGINE_METAL = 0x7a8698;
+const PATCH_BROWN = 0x8a623f;
+const PATCH_GOLD = 0xb99255;
+const FLAG_RED = 0xb84b52;
+const WARM_LIGHT = 0xffbe55;
 
 function createPlayerShip() {
-  return createOrcaShip();
+  return createCuteHagureAirshipOrca();
 }
 
 function orcaMaterial(color, opts = {}) {
@@ -1655,145 +1890,366 @@ function placeShipPart(group, mesh, { name, position, rotation, scale } = {}) {
   return mesh;
 }
 
+let hagureOrcaSpriteTexture = null;
+let playerShootingShipTexture = null;
+function createHagureOrcaSpriteTexture(img, mode = "orca") {
+  if (!img || !img.naturalWidth || typeof document === "undefined" || !document.createElement || !THREE.CanvasTexture) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  const ellipse = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+  for (let y = 0; y < canvas.height; y++) {
+    const py = y / canvas.height;
+    for (let x = 0; x < canvas.width; x++) {
+      const px = x / canvas.width;
+      const i = (y * canvas.width + x) * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const lowSat = max - min < 24;
+      if (mode === "c60") {
+        const lum = (r + g + b) / 3;
+        const edgeEmpty = py < 0.18 || py > 0.88 || px < 0.04 || px > 0.96;
+        if ((lum < 46 && lowSat) || (edgeEmpty && lum < 78 && max - min < 36)) data[i + 3] = 0;
+        continue;
+      }
+      const checkerBg = lowSat && r > 214 && g > 214 && b > 214;
+      const broadShip =
+        ellipse(px, py, 0.5, 0.54, 0.34, 0.48) ||
+        ellipse(px, py, 0.19, 0.47, 0.13, 0.14) ||
+        ellipse(px, py, 0.81, 0.47, 0.13, 0.14) ||
+        ellipse(px, py, 0.24, 0.68, 0.18, 0.11) ||
+        ellipse(px, py, 0.76, 0.68, 0.18, 0.11) ||
+        ellipse(px, py, 0.5, 0.18, 0.18, 0.2) ||
+        ellipse(px, py, 0.56, 0.06, 0.16, 0.08);
+      const protectedWhiteHull =
+        ellipse(px, py, 0.5, 0.77, 0.28, 0.22) ||
+        ellipse(px, py, 0.32, 0.55, 0.1, 0.18) ||
+        ellipse(px, py, 0.68, 0.55, 0.1, 0.18) ||
+        ellipse(px, py, 0.19, 0.47, 0.1, 0.1) ||
+        ellipse(px, py, 0.81, 0.47, 0.1, 0.1);
+      if (checkerBg && !protectedWhiteHull) data[i + 3] = 0;
+      else if (!broadShip && lowSat && max > 170) data[i + 3] = 0;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function addHagureOrcaSprite(group, fallback) {
+  const img = tryImage(PLAYER_SHOOTING_SHIP_ASSET);
+  const apply = () => {
+    if (!img.naturalWidth || !THREE.PlaneGeometry) return;
+    if (!playerShootingShipTexture) playerShootingShipTexture = createHagureOrcaSpriteTexture(img, "orca");
+    if (!playerShootingShipTexture) return;
+    const sprite = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.42, 2.72),
+      new THREE.MeshBasicMaterial({
+        map: playerShootingShipTexture,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+      })
+    );
+    sprite.name = "cuteOrcaSprite";
+    sprite.position.set(0, 0.04, 0.92);
+    sprite.renderOrder = 20;
+    group.add(sprite);
+    if (fallback) fallback.visible = false;
+  };
+  if (img.complete) apply();
+  else img.addEventListener("load", apply, { once: true });
+}
+
+function createCuteOrcaFallbackParts({ blackMat, whiteMat, grayMat, cockpitMat, goldMat }) {
+  const fallback = new THREE.Group();
+  placeShipPart(fallback, new THREE.Mesh(new THREE.SphereGeometry(0.56, 24, 14), blackMat), {
+    name: "softMainHull",
+    position: [-0.06, 0, 0.08],
+    scale: [1.68, 0.72, 0.5],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.CircleGeometry(0.36, 24), whiteMat), {
+    name: "softBellyWhite",
+    position: [-0.28, -0.16, 0.68],
+    scale: [1.52, 0.58, 1],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.CircleGeometry(0.12, 18), whiteMat), {
+    name: "softOrcaPatch",
+    position: [-0.54, 0.23, 0.7],
+    rotation: [0, 0, -0.28],
+    scale: [1.45, 0.62, 1],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), cockpitMat), {
+    name: "softBlueEye",
+    position: [-0.52, 0.02, 0.77],
+    scale: [0.82, 0.92, 0.34],
+  });
+  [0.02, 0.22, 0.42].forEach((x, i) => {
+    placeShipPart(fallback, new THREE.Mesh(new THREE.CircleGeometry(0.075, 16), cockpitMat), {
+      name: `softPorthole${i + 1}`,
+      position: [x, 0.11, 0.73],
+      scale: [1, 0.78, 1],
+    });
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.48, 3), blackMat), {
+    name: "softDorsalFin",
+    position: [-0.12, 0.52, 0.12],
+    rotation: [0, 0, -0.06],
+    scale: [0.78, 0.98, 0.18],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.62, 3), blackMat), {
+    name: "softSideFin",
+    position: [0.1, -0.48, 0.18],
+    rotation: [0, 0, Math.PI],
+    scale: [0.9, 1, 0.18],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.48, 3), blackMat), {
+    name: "softTailTop",
+    position: [0.82, 0.18, 0.08],
+    rotation: [0, 0, -Math.PI / 2],
+    scale: [0.86, 1, 0.16],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.48, 3), blackMat), {
+    name: "softTailBottom",
+    position: [0.82, -0.18, 0.08],
+    rotation: [0, 0, Math.PI / 2],
+    scale: [0.86, 1, 0.16],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.04), grayMat), {
+    name: "softPatchPlate",
+    position: [0.18, -0.28, 0.72],
+    rotation: [0, 0, -0.18],
+  });
+  placeShipPart(fallback, new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), goldMat), {
+    name: "softCharm",
+    position: [-0.05, -0.49, 0.75],
+  });
+  return fallback;
+}
+
+function createCuteHagureAirshipOrca() {
+  const group = new THREE.Group();
+  const blackMat = orcaMaterial(ORCA_BLACK, { emissive: 0x061626, emissiveIntensity: 0.18, metalness: 0.22, roughness: 0.5 });
+  const whiteMat = orcaMaterial(ORCA_WHITE, { emissive: 0x273440, emissiveIntensity: 0.14, metalness: 0.16, roughness: 0.46 });
+  const grayMat = orcaMaterial(ORCA_SOFT_GRAY, { metalness: 0.46, roughness: 0.46 });
+  const goldMat = orcaMaterial(PATCH_GOLD, { emissive: 0x503000, emissiveIntensity: 0.18, metalness: 0.42 });
+  const cockpitMat = new THREE.MeshBasicMaterial({ color: COCKPIT_BLUE });
+  const flameMat = new THREE.MeshBasicMaterial({ color: THRUSTER_BLUE, transparent: true, opacity: 0.82 });
+
+  const fallback = createCuteOrcaFallbackParts({ blackMat, whiteMat, grayMat, cockpitMat, goldMat });
+  group.add(fallback);
+  addHagureOrcaSprite(group, fallback);
+
+  const thrusters = [];
+  [0.58, 0.76].forEach((x, i) => {
+    const flame = placeShipPart(group, new THREE.Mesh(new THREE.ConeGeometry(0.105, 0.44, 12), flameMat), {
+      name: i === 0 ? "thrusterLowerGlow" : "thrusterUpperGlow",
+      position: [x, i === 0 ? -0.04 : 0.17, 0.2],
+      rotation: [0, 0, -Math.PI / 2],
+      scale: [0.76, 1, 0.76],
+    });
+    flame.userData.baseScale = { x: 0.76, y: 1, z: 0.76 };
+    thrusters.push(flame);
+  });
+
+  const flag = placeShipPart(group, new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), goldMat), {
+    name: "mastStar",
+    position: [-0.28, 0.63, 0.78],
+    scale: [1.1, 1.1, 0.36],
+  });
+
+  group.userData = {
+    shipName: "Hagure Airship Orca",
+    role: "playerShip",
+    hitR: SHIP_R,
+    thrusters,
+    flag,
+  };
+  group.scale.set(1.02, 1.02, 1.02);
+  group.position.set(0, FLIGHT_SHIP_Y, FLIGHT_OBJECT_Z);
+  return group;
+}
+
 // c60「はぐれ飛行船オルカ号」：ローポリでかわいいシャチ型の母艦。
-function createOrcaShip() {
+function createHagureAirshipOrca() {
   const g = new THREE.Group();
-  const darkMat = orcaMaterial(ORCA_DARK, { emissive: ORCA_BLACK, emissiveIntensity: 0.16, metalness: 0.42 });
-  const blackMat = orcaMaterial(ORCA_BLACK, { emissive: 0x050811, emissiveIntensity: 0.18, metalness: 0.38 });
-  const whiteMat = orcaMaterial(ORCA_WHITE, { emissive: 0x24313c, emissiveIntensity: 0.16, metalness: 0.2 });
-  const grayMat = orcaMaterial(ORCA_GRAY, { metalness: 0.55, roughness: 0.45 });
-  const brassMat = orcaMaterial(PATCH_BRASS, { emissive: 0x2b1600, emissiveIntensity: 0.12, metalness: 0.5 });
+  const darkMat = orcaMaterial(ORCA_DARK, { emissive: ORCA_BLACK, emissiveIntensity: 0.18, metalness: 0.42 });
+  const blackMat = orcaMaterial(ORCA_BLACK, { emissive: 0x050811, emissiveIntensity: 0.2, metalness: 0.38 });
+  const whiteMat = orcaMaterial(ORCA_WHITE, { emissive: 0x223645, emissiveIntensity: 0.18, metalness: 0.18 });
+  const grayMat = orcaMaterial(ORCA_SOFT_GRAY, { metalness: 0.5, roughness: 0.42 });
+  const engineMat = orcaMaterial(ENGINE_METAL, { emissive: 0x161d2b, emissiveIntensity: 0.16, metalness: 0.62 });
+  const patchMat = orcaMaterial(PATCH_BROWN, { emissive: 0x2b1600, emissiveIntensity: 0.1, metalness: 0.32, roughness: 0.72 });
+  const goldMat = orcaMaterial(PATCH_GOLD, { emissive: 0x2b1600, emissiveIntensity: 0.12, metalness: 0.54 });
   const cockpitMat = new THREE.MeshStandardMaterial({
     color: COCKPIT_BLUE,
     emissive: COCKPIT_BLUE,
-    emissiveIntensity: 0.85,
+    emissiveIntensity: 0.9,
     metalness: 0.15,
     roughness: 0.2,
     flatShading: true,
   });
   const lightMat = new THREE.MeshBasicMaterial({ color: WARM_LIGHT });
   const flameMat = new THREE.MeshBasicMaterial({ color: THRUSTER_BLUE, transparent: true, opacity: 0.85 });
-  const flagMat = orcaMaterial(FLAG_RED, { emissive: 0x260808, emissiveIntensity: 0.2, roughness: 0.68 });
+  const flagMat = orcaMaterial(FLAG_RED, { emissive: 0x260808, emissiveIntensity: 0.22, roughness: 0.68 });
 
-  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.52, 24, 16), darkMat), {
-    name: "mainBody",
-    scale: [1.24, 0.78, 0.72],
+  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.62, 32, 18), darkMat), {
+    name: "mainHull",
+    position: [0, -0.08, 0],
+    scale: [0.72, 1.82, 0.54],
   });
-  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.48, 20, 14), blackMat), {
-    name: "darkTop",
-    position: [0, 0.15, 0.04],
-    scale: [1.18, 0.5, 0.66],
+  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.54, 24, 16), blackMat), {
+    name: "headTop",
+    position: [0, 0.9, 0.08],
+    scale: [0.86, 0.74, 0.56],
   });
-  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.38, 24), whiteMat), {
-    name: "whiteBelly",
-    position: [0, -0.16, 0.54],
-    scale: [1.42, 0.66, 1],
+  placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.43, 0.82, 24), blackMat), {
+    name: "rearTaper",
+    position: [0, -1.06, 0.02],
+    rotation: [0, 0, Math.PI],
+    scale: [0.8, 1, 0.46],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.46, 28), whiteMat), {
+    name: "bellyWhite",
+    position: [0, -0.2, 0.68],
+    scale: [0.62, 1.62, 1],
   });
   placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.2, 18), whiteMat), {
-    name: "orcaCheekLeft",
-    position: [-0.28, 0.06, 0.56],
-    rotation: [0, 0, -0.16],
-    scale: [1.1, 0.6, 1],
+    name: "orcaPatchLeft",
+    position: [-0.28, 0.78, 0.72],
+    rotation: [0, 0, -0.46],
+    scale: [1.18, 0.52, 1],
   });
   placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.2, 18), whiteMat), {
-    name: "orcaCheekRight",
-    position: [0.28, 0.06, 0.56],
-    rotation: [0, 0, 0.16],
-    scale: [1.1, 0.6, 1],
+    name: "orcaPatchRight",
+    position: [0.28, 0.78, 0.72],
+    rotation: [0, 0, 0.46],
+    scale: [1.18, 0.52, 1],
   });
 
-  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.21, 24), cockpitMat), {
-    name: "cockpit",
-    position: [0, 0.18, 0.62],
-    scale: [1.62, 0.62, 1],
+  placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.18, 24), cockpitMat), {
+    name: "cockpitFront",
+    position: [0, 1.05, 0.79],
+    scale: [1.48, 0.58, 1],
   });
-  [-0.18, 0.18].forEach((x, i) => {
+  [-0.2, 0, 0.2].forEach((x, i) => {
     placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), lightMat), {
       name: `warmCabinLight${i + 1}`,
-      position: [x, -0.02, 0.66],
+      position: [x, 0.52, 0.78],
     });
   });
 
-  placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.38, 3), blackMat), {
+  placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.78, 3), blackMat), {
     name: "dorsalFin",
-    position: [0, 0.53, 0.02],
-    rotation: [0, 0, Math.PI],
-    scale: [0.9, 1, 0.7],
+    position: [0, 0.3, 0.82],
+    scale: [0.82, 1.08, 0.16],
   });
-  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), blackMat), {
-    name: "sideFinLeft",
-    position: [-0.58, -0.05, 0.08],
-    rotation: [0, 0, -0.28],
-    scale: [1.55, 0.42, 0.46],
+  placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.035), grayMat), {
+    name: "dorsalFinBase",
+    position: [0, -0.06, 0.83],
+    rotation: [0, 0, -0.02],
   });
-  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), blackMat), {
-    name: "sideFinRight",
-    position: [0.58, -0.05, 0.08],
-    rotation: [0, 0, 0.28],
-    scale: [1.55, 0.42, 0.46],
+  placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.84, 3), blackMat), {
+    name: "finLeft",
+    position: [-0.66, 0.08, 0.16],
+    rotation: [0, 0, Math.PI / 2],
+    scale: [0.78, 1.18, 0.18],
+  });
+  placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.84, 3), blackMat), {
+    name: "finRight",
+    position: [0.66, 0.08, 0.16],
+    rotation: [0, 0, -Math.PI / 2],
+    scale: [0.78, 1.18, 0.18],
   });
 
   const thrusters = [];
-  [-0.45, 0.45].forEach((x, i) => {
-    placeShipPart(g, new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.34, 12), grayMat), {
-      name: i === 0 ? "engineLeft" : "engineRight",
-      position: [x, -0.36, 0.18],
-      rotation: [0, 0, Math.PI / 2],
-      scale: [1.08, 0.9, 1],
+  [-0.48, 0.48].forEach((x, i) => {
+    placeShipPart(g, new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.18, 0.7, 14), engineMat), {
+      name: i === 0 ? "enginePodLeft" : "enginePodRight",
+      position: [x, -0.9, 0.22],
+      scale: [0.9, 1, 0.76],
     });
-    placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.12, 14), blackMat), {
+    placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.5, 0.04), goldMat), {
+      name: i === 0 ? "engineBraceLeft" : "engineBraceRight",
+      position: [x * 0.72, -0.8, 0.62],
+      rotation: [0, 0, i === 0 ? -0.12 : 0.12],
+    });
+    placeShipPart(g, new THREE.Mesh(new THREE.CircleGeometry(0.14, 16), blackMat), {
       name: i === 0 ? "engineNozzleLeft" : "engineNozzleRight",
-      position: [x, -0.5, 0.42],
-      scale: [1.1, 0.72, 1],
+      position: [x, -1.24, 0.64],
+      scale: [1.12, 0.72, 1],
     });
-    const flame = placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.42, 12), flameMat), {
+    const flame = placeShipPart(g, new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.52, 12), flameMat), {
       name: i === 0 ? "thrusterLeft" : "thrusterRight",
-      position: [x, -0.66, 0.34],
+      position: [x, -1.55, 0.58],
       rotation: [0, 0, Math.PI],
-      scale: [0.9, 1, 0.9],
+      scale: [0.86, 1, 0.86],
     });
-    flame.userData.baseScale = { x: 0.9, y: 1, z: 0.9 };
+    flame.userData.baseScale = { x: 0.86, y: 1, z: 0.86 };
     thrusters.push(flame);
   });
 
-  placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.045, 0.035), grayMat), {
-    name: "hullBelt",
-    position: [0, -0.03, 0.66],
-    rotation: [0, 0, 0.04],
+  placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), lightMat), {
+    name: "lowerLight",
+    position: [0, -0.92, 0.76],
+  });
+  [-0.34, -0.7].forEach((y, i) => {
+    placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.74 - i * 0.12, 0.045, 0.04), grayMat), {
+      name: i === 0 ? "beltLine" : "rearBeltLine",
+      position: [0, y, 0.74],
+      rotation: [0, 0, i === 0 ? 0.04 : -0.05],
+    });
   });
   [
-    [-0.31, -0.25, 0.66, 0.18, 0.07, -0.18, "patchPartsLeft"],
-    [0.26, -0.27, 0.65, 0.16, 0.06, 0.22, "patchPartsRight"],
-    [0.38, 0.03, 0.63, 0.13, 0.045, -0.08, "patchPartsTop"],
+    [-0.24, -0.5, 0.79, 0.2, 0.08, -0.16, "patchPlate"],
+    [0.24, -0.18, 0.78, 0.16, 0.07, 0.18, "patchPlateStarboard"],
+    [0.16, -0.62, 0.8, 0.12, 0.05, -0.08, "patchPlateRear"],
   ].forEach(([x, y, z, sx, sy, rz, name]) => {
-    placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.035), brassMat), {
+    placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.04), patchMat), {
       name,
       position: [x, y, z],
       rotation: [0, 0, rz],
       scale: [sx, sy, 1],
     });
   });
-
-  placeShipPart(g, new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.34, 6), grayMat), {
-    name: "smallFlagPole",
-    position: [0.32, 0.55, 0.12],
+  [-0.36, 0.36].forEach((x, i) => {
+    placeShipPart(g, new THREE.Mesh(new THREE.SphereGeometry(0.026, 6, 6), goldMat), {
+      name: i === 0 ? "beltRivetLeft" : "beltRivetRight",
+      position: [x, -0.34, 0.8],
+    });
   });
-  const flag = placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.025), flagMat), {
-    name: "smallFlag",
-    position: [0.43, 0.66, 0.12],
+
+  placeShipPart(g, new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.44, 6), grayMat), {
+    name: "mastPole",
+    position: [0.34, 0.46, 0.86],
+  });
+  const flag = placeShipPart(g, new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.13, 0.025), flagMat), {
+    name: "mastFlag",
+    position: [0.47, 0.61, 0.86],
     rotation: [0, 0, -0.08],
   });
 
   g.userData = {
-    shipName: "はぐれ飛行船オルカ号",
+    shipName: "Hagure Airship Orca",
     role: "playerShip",
     hitR: SHIP_R,
     thrusters,
     flag,
   };
-  g.scale.set(1.15, 1.15, 1.15);
+  g.scale.set(1.08, 1.08, 1.08);
   g.position.set(0, FLIGHT_SHIP_Y, FLIGHT_OBJECT_Z);
   return g;
+}
+
+function createOrcaShip() {
+  return createCuteHagureAirshipOrca();
 }
 
 function animatePlayerShip(now) {
@@ -1856,8 +2312,7 @@ function setupStageFlightBackground(star) {
   const theme = star.theme || stageTheme(star.stage);
   clearGroup(SH.stageBg);
   const host = document.getElementById("shooting-canvas");
-  host.style.background = stageSpaceBackground(theme, "50% 20%");
-  host.style.backgroundSize = stageBackgroundSize(theme);
+  applyStageBackdrop(host, star, "50% 20%", 0.76);
 
   const geo = new THREE.BufferGeometry();
   const N = 190 + (star.stage % 5) * 28;
@@ -1953,23 +2408,123 @@ function spawnCrystal(kind = "normal") {
   m.userData = { type: "crystal", kind, r, hitR: r + 0.15 };
   SH.scene.add(m); SH.crystals.push(m);
 }
-function spawnEnemy() {
+function spawnEnemy(opts = {}) {
+  const large = !!opts.large;
   const g = new THREE.Group();
   const core = new THREE.Mesh(
-    new THREE.TorusGeometry(0.82, 0.32, 8, 16),
-    new THREE.MeshStandardMaterial({ color: 0xff5a26, emissive: 0x661500, flatShading: true })
+    new THREE.TorusGeometry(large ? 1.08 : 0.82, large ? 0.4 : 0.32, 8, 16),
+    new THREE.MeshStandardMaterial({ color: large ? 0xff334f : 0xff5a26, emissive: large ? 0x771020 : 0x661500, flatShading: true })
   );
   g.add(core);
   const eye = new THREE.Mesh(
-    new THREE.SphereGeometry(0.28, 10, 10),
+    new THREE.SphereGeometry(large ? 0.36 : 0.28, 10, 10),
     new THREE.MeshBasicMaterial({ color: 0xffdd66 })
   );
   eye.position.z = 0.12;
   g.add(eye);
-  const enemyR = 1.05;
+  const enemyR = large ? 1.36 : 1.05;
   g.position.set(spawnX(enemyR + 0.18), spawnTopY(), FLIGHT_OBJECT_Z);
-  g.userData = { type: "enemy", r: enemyR, hitR: 0.76, hp: 2 };
+  g.userData = { type: "enemy", r: enemyR, hitR: large ? 1.02 : 0.76, hp: large ? 4 : 2, large };
   SH.scene.add(g); SH.enemies.push(g);
+}
+
+function stageSpawnInterval() {
+  switch (SH.gimmick) {
+    case "enemyRush": return 480;
+    case "meteor": return 520;
+    case "speed": return 540;
+    case "largeEnemy": return 760;
+    case "heal": return 620;
+    case "bossPreview": return 700;
+    case "calmBeforeFinal": return 900;
+    default: return 680;
+  }
+}
+
+function stageSpeedMul(kind) {
+  let mul = 1;
+  if (SH.gimmick === "speed") mul *= 1.35;
+  if (SH.gimmick === "danger") mul *= 1.12;
+  if (SH.gimmick === "meteor" && kind === "rock") mul *= 1.12;
+  if (SH.gimmick === "enemyRush" && kind === "enemy") mul *= 1.08;
+  if (SH.gimmick === "calmBeforeFinal") mul *= 0.86;
+  return mul;
+}
+
+function spawnStageObject() {
+  const r = Math.random();
+  switch (SH.gimmick) {
+    case "meteor":
+      if (r < 0.58) spawnRock(r < 0.2);
+      else if (r < 0.76) spawnCrystal("normal");
+      else if (r < 0.79) spawnCrystal("big");
+      else if (r < 0.81) spawnCrystal("heal");
+      else spawnEnemy();
+      break;
+    case "enemyRush":
+      if (r < 0.2) spawnRock(false);
+      else if (r < 0.33) spawnCrystal("normal");
+      else if (r < 0.36) spawnCrystal("big");
+      else {
+        spawnEnemy();
+        if (Math.random() < 0.35) spawnEnemy();
+      }
+      break;
+    case "narrowLane":
+      if (r < 0.32) spawnRock(false);
+      else if (r < 0.52) spawnCrystal("normal");
+      else if (r < 0.56) spawnCrystal("big");
+      else if (r < 0.59) spawnCrystal("heal");
+      else spawnEnemy();
+      break;
+    case "rareScout":
+      if (r < 0.28) spawnRock(false);
+      else if (r < 0.48) spawnCrystal("normal");
+      else if (r < 0.53) spawnCrystal("big");
+      else if (r < 0.56) spawnCrystal("heal");
+      else spawnEnemy();
+      break;
+    case "heal":
+      if (r < 0.28) spawnRock(false);
+      else if (r < 0.48) spawnCrystal("normal");
+      else if (r < 0.54) spawnCrystal("big");
+      else if (r < 0.68) spawnCrystal("heal");
+      else spawnEnemy();
+      break;
+    case "largeEnemy":
+      if (r < 0.28) spawnRock(false);
+      else if (r < 0.46) spawnCrystal("normal");
+      else if (r < 0.5) spawnCrystal("big");
+      else spawnEnemy({ large: Math.random() < 0.7 });
+      break;
+    case "danger":
+      if (r < 0.48) spawnRock(r < 0.28);
+      else if (r < 0.62) spawnCrystal("normal");
+      else if (r < 0.65) spawnCrystal("heal");
+      else spawnEnemy();
+      break;
+    case "bossPreview":
+      if (r < 0.34) spawnRock(r < 0.16);
+      else if (r < 0.5) spawnCrystal("normal");
+      else if (r < 0.54) spawnCrystal("big");
+      else spawnEnemy({ large: Math.random() < 0.5 });
+      break;
+    case "calmBeforeFinal":
+      if (r < 0.18) spawnRock(false);
+      else if (r < 0.42) spawnCrystal("normal");
+      else if (r < 0.48) spawnCrystal("big");
+      else if (r < 0.56) spawnCrystal("heal");
+      else spawnEnemy();
+      break;
+    default:
+      if (r < 0.34) spawnRock(false);
+      else if (r < 0.46) spawnRock(true);
+      else if (r < 0.62) spawnCrystal("normal");
+      else if (r < 0.65) spawnCrystal("big");
+      else if (r < 0.67) spawnCrystal("heal");
+      else spawnEnemy();
+      break;
+  }
 }
 // 自機の青い極太レーザー＋僚機の細い弾
 function fireBullet() {
@@ -1998,11 +2553,15 @@ function spawnLaser(pos, w, color, dmg) {
 function startShooting(star) {
   if (!SH.renderer) initShooting();
   resizeRenderer(SH.renderer, document.getElementById("shooting-canvas"));
+  SH.gimmick = star.gimmick || "meteor";
+  activeFlightGimmick = SH.gimmick;
   setupStageFlightBackground(star);
   // リセット
   [...SH.bullets, ...SH.rocks, ...SH.enemies, ...SH.crystals].forEach(o => SH.scene.remove(o));
   SH.bullets = []; SH.rocks = []; SH.enemies = []; SH.crystals = [];
   const spareEnergy = consumeItem("spareEnergy");
+  const crystalMagnet = consumeItem("crystalMagnet");
+  const reserveBomb = consumeItem("reserveBomb");
   SH.maxHp = MAX_HP + (spareEnergy ? 1 : 0);
   SH.hp = SH.maxHp; SH.gained = 0; SH.timeLeft = STAGE_TIME;
   SH.ship.position.set(0, FLIGHT_SHIP_Y, FLIGHT_OBJECT_Z); SH.targetX = 0; SH.targetY = FLIGHT_SHIP_Y;
@@ -2010,8 +2569,9 @@ function startShooting(star) {
   SH.keyDir = 0; SH.lastManualShot = 0;
   SH.startT = performance.now();
   // アーケードHUDのリセット
-  SH.score = 0; SH.chain = 0; SH.chainExpire = 0; SH.bombs = 3;
+  SH.score = 0; SH.chain = 0; SH.chainExpire = 0; SH.bombs = reserveBomb ? 4 : 3;
   SH.lastSpeech = 0; SH.speechIdx = 0;
+  SH.pickupBonus = crystalMagnet ? 0.55 : 0;
   // 航行スタッツ＆ミッションをリセット
   SH.dmgTaken = 0; SH.kills = 0; SH.bigPicked = 0;
   SH.mission = MISSIONS[Math.floor(Math.random() * MISSIONS.length)];
@@ -2036,6 +2596,11 @@ function startShooting(star) {
   updateMissionHUD();
   updateArcadeHUD();
   clearFlightFeedback();
+  const gimmick = stageGimmick(star);
+  setTimeout(() => {
+    showFlightNotice(gimmick.notice, SH.gimmick === "danger" ? "damage" : "get");
+    pushFlightEvent(`航行ギミック：${gimmick.label}`, SH.gimmick === "danger" ? "damage" : "get");
+  }, 220);
   bindBomb();
   if (spareEnergy) {
     setTimeout(() => {
@@ -2045,8 +2610,24 @@ function startShooting(star) {
       pulseHud("sh-hp", "get");
     }, 250);
   }
+  if (crystalMagnet) {
+    setTimeout(() => {
+      spawnPopup("クリスタル磁石 ON", "#66e8ff", { type: "get" });
+      showFlightNotice("PICKUP RANGE UP", "get");
+      pushFlightEvent("クリスタル磁石で回収範囲アップ", "get");
+    }, 380);
+  }
+  if (reserveBomb) {
+    setTimeout(() => {
+      spawnPopup("予備ボム +1", "#ffd35a", { type: "kill" });
+      showFlightNotice("BOMB +1", "kill");
+      pushFlightEvent("予備ボム BOMB+1", "kill");
+      updateArcadeHUD();
+    }, 520);
+  }
 
   const hint = document.getElementById("shooting-hint");
+  hint.textContent = `${gimmick.label}：${gimmick.desc}`;
   hint.style.opacity = "1";
   setTimeout(() => hint.style.opacity = "0", 3000);
 
@@ -2090,15 +2671,9 @@ function updateShooting(dt, now) {
   // 自動弾＋タップ/SPACEの手動弾（ロボ太がいると発射間隔が短縮）
   if (now - SH.lastShot > 520 * SH.nav.fireRateMul) { fireBullet(); SH.lastShot = now; }
 
-  // スポーン（種類ごとに出現率。クリスタルは貴重なので控えめ）
-  if (now - SH.lastSpawn > 680) {
-    const r = Math.random();
-    if (r < 0.34)      spawnRock(false);   // 通常隕石（多め）
-    else if (r < 0.46) spawnRock(true);    // 赤い隕石
-    else if (r < 0.62) spawnCrystal("normal"); // 通常クリスタル（16%）
-    else if (r < 0.65) spawnCrystal("big");    // 大クリスタル（3%・かなり低確率）
-    else if (r < 0.67) spawnCrystal("heal");   // 回復クリスタル（2%・さらに低確率）
-    else               spawnEnemy();           // 敵（多め）
+  // スポーン（ステージごとに1つだけ違う航行ギミックを反映）
+  if (now - SH.lastSpawn > stageSpawnInterval()) {
+    spawnStageObject();
     SH.lastSpawn = now;
   }
 
@@ -2119,7 +2694,7 @@ function updateShooting(dt, now) {
   // 隕石（通常 -1 / 赤 -2）。ペンペンがいると接近スピード低下
   for (let i = SH.rocks.length - 1; i >= 0; i--) {
     const o = SH.rocks[i];
-    o.position.y -= speed * SH.nav.hazardSpeedMul * dt;
+    o.position.y -= speed * stageSpeedMul("rock") * SH.nav.hazardSpeedMul * dt;
     o.rotation.x += o.userData.spin; o.rotation.y += o.userData.spin;
     if (hitShip(o)) { damageShip(o.userData.dmg, true); SH.scene.remove(o); SH.rocks.splice(i, 1); continue; }
     if (o.position.y < FLIGHT_DESPAWN_Y) { SH.scene.remove(o); SH.rocks.splice(i, 1); }
@@ -2127,15 +2702,15 @@ function updateShooting(dt, now) {
   // クリスタル（通常 +1〜2 / 大 +8〜10 / 回復 HP+1）
   for (let i = SH.crystals.length - 1; i >= 0; i--) {
     const o = SH.crystals[i];
-    o.position.y -= speed * 0.92 * dt;
+    o.position.y -= speed * stageSpeedMul("crystal") * 0.92 * dt;
     o.rotation.y += 0.08; o.rotation.z += 0.035;
-    if (hitShip(o)) { collectCrystal(o.userData.kind, o.position); SH.scene.remove(o); SH.crystals.splice(i, 1); continue; }
+    if (hitShip(o, SH.pickupBonus)) { collectCrystal(o.userData.kind, o.position); SH.scene.remove(o); SH.crystals.splice(i, 1); continue; }
     if (o.position.y < FLIGHT_DESPAWN_Y) { SH.scene.remove(o); SH.crystals.splice(i, 1); }
   }
   // 敵（ペンペンがいると接近スピード低下）
   for (let i = SH.enemies.length - 1; i >= 0; i--) {
     const e = SH.enemies[i];
-    e.position.y -= speed * 0.82 * SH.nav.hazardSpeedMul * dt;
+    e.position.y -= speed * stageSpeedMul("enemy") * 0.82 * SH.nav.hazardSpeedMul * dt;
     e.rotation.z += 0.055;
     // 弾ヒット
     for (let j = SH.bullets.length - 1; j >= 0; j--) {
@@ -2205,8 +2780,8 @@ function useBomb() {
   updateArcadeHUD();
 }
 
-function hitShip(o) {
-  return o.position.distanceTo(SH.ship.position) < ((o.userData.hitR ?? o.userData.r) + SHIP_R);
+function hitShip(o, bonus = 0) {
+  return o.position.distanceTo(SH.ship.position) < ((o.userData.hitR ?? o.userData.r) + SHIP_R + bonus);
 }
 function damageShip(amount = 1, isRock = false) {
   // 被弾無敵時間中は無効
@@ -2231,6 +2806,7 @@ function damageShip(amount = 1, isRock = false) {
     pulseHud("sh-hp", "get");
     return;
   }
+  if (SH.gimmick === "danger") amount += 1;
   SH.hp = Math.max(0, SH.hp - amount);
   SH.score = Math.max(0, SH.score - amount * 120);
   SH.dmgTaken += amount;
@@ -2472,10 +3048,10 @@ function updatePowerPanel() {
 function updateSpeech(now) {
   if (now - SH.lastSpeech < 4200) return;
   SH.lastSpeech = now;
-  SH.speechIdx = (SH.speechIdx + 1) % SPEECH_LINES.length;
-  const leader = allyById(save.party[0]);
-  document.getElementById("sh-speech-face").innerHTML = leader ? faceHTML(leader.face, allyImagePath(leader)) : "🐶";
-  document.getElementById("sh-speech-text").textContent = SPEECH_LINES[SH.speechIdx];
+  const line = shootingSpeechEntry(currentStar);
+  document.getElementById("sh-speech-face").innerHTML =
+    line.image ? faceHTML(line.face || "✦", line.image) : (line.face || "🐶");
+  document.getElementById("sh-speech-text").textContent = line.text || "";
 }
 
 // MAPレーダー：自機・敵・隕石・クリスタル・ボスを点で表示
@@ -2605,6 +3181,7 @@ let arrivalTimer = null, arrivalStar = null;
 function playArrival(star) {
   arrivalStar = star;
   show("arrival");
+  applyStageBackdrop(document.getElementById("screen-arrival"), star, "50% 38%", 0.64);
   const enemy = ENEMIES[star.enemy];
   document.getElementById("arrival-star").textContent = `${star.icon} ${star.name}`;
   const msgs = [
@@ -2628,6 +3205,10 @@ function finishArrival() {
   if (!arrivalStar) return;        // 二重実行ガード
   clearTimeout(arrivalTimer);
   const s = arrivalStar; arrivalStar = null;
+  playPartyTalkScene(s, "arrival", continueAfterArrivalTalk);
+}
+
+function continueAfterArrivalTalk(s) {
   if (s.stage === 1) playPinoScene(s, PINO_PRE_BATTLE_LINES);
   else if (s.boss) playPinoScene(s, PINO_BOSS_LINES);   // ラスボス前のピノの口上
   else startBattle(s);
@@ -2653,28 +3234,310 @@ const PINO_BOSS_LINES = [
   `${FINAL_BOSS_UNLOCK_COUNT}人のはぐれ者の声が、オルカ号を動かしています`,
   "行きましょう。運命を、固定させないために",
 ];
+
+const STAGE_STORY_LINES = {
+  1: {
+    arrival: "壊れた部品が、星の光を受けて静かに浮かんでいる。",
+    flight: "スクラップ雲を抜けるたび、船底に古い救難信号がこすれていく。",
+    episode: "この星では、帰れなかった船の部品に名前札をつけて、次の旅人へ渡すらしい。",
+    victory: "散らばった宇宙ゴミの間に、細い航路がひとつ開いた。",
+    after: "勝っても、拾えなかった部品はまだ暗闇を漂っている。"
+  },
+  2: {
+    arrival: "検問ゲートの赤いランプが、こちらを値踏みするように点滅している。",
+    flight: "認証音が何度も途切れる。宇宙では、正しい名前を持たない者ほど足止めされる。",
+    episode: "昔、ここで通れなかった小さな船が、ゲート脇に灯台を建てたと言われている。",
+    victory: "閉じかけていたゲートが、ぎこちなく道を譲った。",
+    after: "通行許可の音は鳴った。でも、置いていかれた船影までは消えなかった。"
+  },
+  3: {
+    arrival: "星くず街道はまぶしい。けれど、足元には盗まれた願いが落ちている。",
+    flight: "光る粒が窓に当たるたび、誰かの願いが少しだけ聞こえた気がする。",
+    episode: "旅人はここで願いを書いた星砂を投げる。盗まれた願いは、夜明けまで泣くらしい。",
+    victory: "取り戻した星くずが、仲間たちの影を少し明るくした。",
+    after: "返せた願いもある。けれど、持ち主のいない光は手のひらで静かに冷えた。"
+  },
+  4: {
+    arrival: "停泊地には古い看板と、誰にも渡されなかった値札が揺れている。",
+    flight: "補給ラインは細く、オルカ号のエンジン音まで腹をすかせている。",
+    episode: "この港の商人は、最後の品物だけは値段をつけない。別れの記念だからだ。",
+    victory: "ひとりじめの倉庫から、誰かのための灯りがこぼれた。",
+    after: "市場に声が戻っても、空いた桟橋には帰らない船の影が残っていた。"
+  },
+  5: {
+    arrival: "スクラップ工場の奥で、まだ動きたい機械たちが小さく鳴っている。",
+    flight: "油の霧が星明かりをにじませる。吸気フィルターが、古い夢まで吸い込んでいる。",
+    episode: "廃材を組み直す職人たちは、壊れたものほど長い話を持っていると信じている。",
+    victory: "止まった歯車の音が、少しだけやさしく聞こえた。",
+    after: "静かになった工場で、動かなかった機械が一度だけランプをまたたかせた。"
+  },
+  6: {
+    arrival: "流星の谷を渡る風は速い。願いも迷いも、置いていかれそうになる。",
+    flight: "流星雨で通信が乱れる。短い返事ほど、届くまでに長く感じる。",
+    episode: "ここでは、願いを言い切る前に流星が過ぎる。だから住人は大事な言葉を短くする。",
+    victory: "流星の尾が、はぐれ団の進む先を一瞬だけ照らした。",
+    after: "明るさはすぐ消えた。それでも、消える前に見えた道だけは忘れなかった。"
+  },
+  7: {
+    arrival: "迷子の宙域では、声が遠くへほどけていく。名前を呼ぶことが道しるべになる。",
+    flight: "通信ラグが深くなる。となりの声が、遠い昔の声みたいに遅れて届く。",
+    episode: "迷った船はここで自分の名前を何度も送信する。誰かに見つけてもらうために。",
+    victory: "戻ってきた通信音が、ここにも帰る場所があると教えてくれた。",
+    after: "救難ビーコンは止まった。でも、誰かを呼ぶ癖だけが宙域に残っていた。"
+  },
+  8: {
+    arrival: "ロボ管理区の壁には、同じ命令が何度も何度も刻まれている。",
+    flight: "自動警告が冷たい声で繰り返す。従わない心だけが、船内で少し熱い。",
+    episode: "管理区のロボたちは、初めて見る星を記録しても、感想を書く欄を与えられなかった。",
+    victory: "命令の列が崩れ、誰かが初めて自分の速度で歩き出した。",
+    after: "自由になった足音は小さかった。けれど、もう命令音とは違うリズムだった。"
+  },
+  9: {
+    arrival: "サーカス衛星の明かりは楽しげで、少しさびしい。拍手の残響だけが長い。",
+    flight: "派手な照明の裏側で、酸素メーターの針だけが現実みたいに細く震える。",
+    episode: "この衛星の芸人たちは、泣き顔を見せないために星型の仮面をつける。",
+    victory: "幕が下りても、笑い声の中に本音が少し残っている。",
+    after: "客席は空になったのに、誰かの拍手だけがまだ届くふりをしていた。"
+  },
+  10: {
+    arrival: "海賊の巣には、奪った宝と置いてきた約束が山のように積まれている。",
+    flight: "黒い帆の影を避けるたび、船内の明かりをひとつ消して進む。",
+    episode: "海賊たちは宝箱に故郷の砂を隠す。帰れないことを、笑い話にするために。",
+    victory: "荒れた甲板の向こうで、自由という言葉が少し軽くなった。",
+    after: "奪われた物は戻った。でも、戻れなかった時間だけは誰にも分けられない。"
+  },
+  11: {
+    arrival: "廃兵器の墓場では、戦うために作られたものたちが眠っている。",
+    flight: "装甲片が流れてくる。触れたら、終わった戦いの熱がまだ残っていた。",
+    episode: "墓場の整備士は、使われなかった弾に花を添える。撃たれなかった未来を弔うために。",
+    victory: "錆びた巨体の影から、小さな花のような光が見えた。",
+    after: "勝利の音が消えると、眠っていた兵器たちの沈黙が前より重くなった。"
+  },
+  12: {
+    arrival: "鏡張りの星は、こちらの姿を何度も映す。強さも弱さも隠せない。",
+    flight: "窓の外に映る仲間の顔が、一瞬だけ別の選択をした顔に見える。",
+    episode: "この星の鏡は嘘を映さない。だから住人は、旅立つ前に一度だけ目を閉じる。",
+    victory: "割れた鏡の中に、選ばれなかった顔たちが笑っていた。",
+    after: "破片に映る自分は少し疲れていた。それでも、もう目をそらさなかった。"
+  },
+  13: {
+    arrival: "運命管理塔の数字は冷たい。けれど、誤差の中にも息づかいがある。",
+    flight: "航路予測が何度も失敗する。予定にない心拍だけが、確かな現在を刻んでいる。",
+    episode: "塔では生まれる前から行き先が印字される。空白の札は、いつも処分されていた。",
+    victory: "計算不能の一歩が、塔の最上部まで響いた。",
+    after: "乱れた数式の隙間から、誰にも決められていない朝の色が見えた。"
+  },
+  14: {
+    arrival: "喰われた小星団では、星のかけらがまだ誰かを呼んでいる。",
+    flight: "暗い胃袋みたいな宙域を進む。ライトをつけても、少しずつ光が食べられる。",
+    episode: "消えた小星団の住人は、最後に互いの名前を石に刻んだ。忘れられないために。",
+    victory: "食べ尽くされなかった光が、仲間たちの手元に戻ってきた。",
+    after: "取り戻した光は小さい。けれど、小さいからこそ手放せなかった。"
+  },
+  15: {
+    arrival: "銀河法廷の床は冷たい。弱いことさえ、罪のように扱われている。",
+    flight: "判決文の破片が船体を叩く。どれも、誰かの事情を途中で切り捨てている。",
+    episode: "この法廷では、泣いた者は証言を失う。だから廊下の隅に涙の星ができた。",
+    victory: "判決の鐘は鳴らなかった。代わりに、足音が続いた。",
+    after: "無罪を告げる声はなかった。ただ、進んでいい沈黙だけが残った。"
+  },
+  16: {
+    arrival: "記憶の渦は静かで、忘れたふりをした言葉ほど強く引き寄せる。",
+    flight: "計器に知らない名前が映る。たぶん昔、誰かがここで落としていった記憶だ。",
+    episode: "この渦では、忘れたい記憶ほど光る。住人は眠る前に星を布で隠す。",
+    victory: "失くしかけた名前が、もう一度ログに刻まれた。",
+    after: "思い出せたことは救いだった。でも、思い出した痛みも一緒に戻ってきた。"
+  },
+  17: {
+    arrival: "無重力宮では、体も心も上下を見失う。つかむ手だけが本当だ。",
+    flight: "床も天井もない。誰かが黙ると、そのまま遠くへ流れていきそうになる。",
+    episode: "宮の住人は別れ際に靴ひもを交換する。どこへ流れても、戻る印になるように。",
+    victory: "重力が戻る前に、仲間たちは互いの位置を確かめた。",
+    after: "足元が戻っても、胸の中だけはまだ少し浮いたままだった。"
+  },
+  18: {
+    arrival: "回収機関ステーションには、役に立つものだけを残す空気が漂っている。",
+    flight: "分類タグが窓を横切る。不要、保留、廃棄。その言葉がやけに近い。",
+    episode: "このステーションでは、価値なしと判定された物が夜だけ小さく歌う。",
+    victory: "回収リストにない絆が、ステーションの記録を乱した。",
+    after: "登録されなかった名前ほど、仲間たちの中では強く残った。"
+  },
+  19: {
+    arrival: "人工勇者の城は完璧すぎて、誰かの失敗を許さないように見える。",
+    flight: "白い城壁が近づく。船体の傷まで、まるで間違いみたいに光に照らされる。",
+    episode: "城の勇者たちは敗北を知らない。だから、負けた者の手を取る練習もできなかった。",
+    victory: "完璧な勇者の影で、未完成の仲間たちが息をしている。",
+    after: "強くなることより、弱いまま隣にいることの方が難しいと知った。"
+  },
+  20: {
+    arrival: "運命固定装置の最深部。ここでは、未来さえ部品のように並べられている。",
+    flight: "星明かりが少ない。船内に残った仲間の声だけが、最後の灯りになっている。",
+    episode: "固定装置は、迷った者の未来を削って正しい形にする。削られた欠片は、星にもなれない。",
+    victory: "固定された運命に、まだ書き足せる余白が残っていた。",
+    after: "終わったはずの沈黙の奥で、誰かが小さく未来を呼んでいた。"
+  },
+};
+
+const ROLE_TALK_LINES = {
+  balanced: { arrival: "{star}か。まずは落ち着いて、足場を確かめよう。", flight: "酸素も燃料もぎりぎりだ。焦ると、暗闇に気持ちを持っていかれる。", victory: "{enemy}を越えた。勝ったのに、胸の奥だけ少し静かだ。" },
+  attacker: { arrival: "{star}の空気、ぴりぴりしてるな。先に道を開ける。", flight: "怖いなら前を見る。後ろを見たら、置いてきたものまで見えてしまう。", victory: "よし、{enemy}に勝った。でも、強がりだけで進むには宇宙は広すぎる。" },
+  trick: { arrival: "へえ、{star}は変な星だね。変な星ほど抜け道がある。", flight: "笑ってないと、通信の沈黙が重くなるんだ。だから少しふざけるよ。", victory: "{enemy}も最後まで読めなかったみたいだね。ぼくらも、自分の明日までは読めないけど。" },
+  support: { arrival: "みんな、無理しないで。{star}では支え合った方がいい。", flight: "今、誰かの返事が一拍遅れた。疲れてるなら、ちゃんと言って。", victory: "勝てたね。小さな手当てと声かけが、帰り道を残してくれる。" },
+  defender: { arrival: "{star}では前に出る。怖いものは、ぼくが受け止める。", flight: "船体がきしむ音は嫌いだ。でも、みんなの声が聞こえるなら耐えられる。", victory: "守りきれたなら十分だ。守れなかったもののことも、忘れない。" },
+  speed: { arrival: "風が読みにくいな。先に{star}の流れを見てくる。", flight: "急いでるのに、宇宙はぜんぜん縮まらない。だからこそ、先に道を見つける。", victory: "止まらなかったから勝てた。止まったら、寂しさが追いついてきそうだった。" },
+  debuff: { arrival: "{star}の嫌な気配、少しずつほどいていこう。", flight: "この宙域、心までノイズが入る。嫌な予感だけをほどいておく。", victory: "{enemy}の強さにも綻びはあった。ぼくらの弱さにも、たぶん意味がある。" },
+  cleaner: { arrival: "ここ、散らかってる。{star}ごと少し片づけたいな。", flight: "窓についた星くずを拭くと、遠くの光が少しだけ戻ってくる。", victory: "危ないものは減った。でも、誰かの思い出まで片づけないようにしよう。" },
+  weak: { arrival: "こわいけど……{star}まで来られたんだ。ぼくも行く。", flight: "宇宙って静かすぎる。ぼくの心臓の音まで聞こえて、少しこわい。", victory: "ぼく、逃げなかった。勝ったことより、それを覚えておきたい。" },
+  growth: { arrival: "{star}で何かつかめそう。まだ小さいけど、伸びたい。", flight: "遠い星を見ると、自分が小さく見える。でも、小さいまま進んでもいいんだよね。", victory: "今の戦いで少し大きくなれた気がする。痛かった分だけ、たぶん。" },
+  healer: { arrival: "この星、傷の匂いがする。戦うだけじゃなく、治したい。", flight: "船内の空気が乾いてる。声がかすれる前に、みんな少し息を整えて。", victory: "終わったね。勝った後こそ、みんなの傷を見せて。心の方も。" },
+  luck: { arrival: "今日は流れが悪くない。{star}でも、きっと拾えるものがある。", flight: "幸運って、帰りたいと願う気持ちに少し似てる。消えないように握ってる。", victory: "運だけじゃないよ。運をつかめる場所まで、みんなで来たんだ。" },
+  mystery: { arrival: "{star}は静かに何かを隠している。答えは急がなくていい。", flight: "星の裏側から知らない記憶が流れてくる。怖いけど、目をそらしたくない。", victory: "謎は残った。でも、残った謎ごと進めばいい。全部わかると、別れも近いから。" },
+  time: { arrival: "急ごう。でも焦らないで。{star}の時間は少しずれている。", flight: "今の返事、少し未来から聞こえた気がした。間に合うなら、それでいい。", victory: "今の一瞬を間違えなかった。それが未来を変える。たとえ少しだけでも。" },
+  leader: { arrival: "ここからは声を合わせる。はぐれ団、隊列を崩すな。", flight: "ひとりの沈黙も見落とさない。宇宙では、黙った声ほど遠くへ行く。", victory: "勝利は誰か一人のものじゃない。迷った足音も、全部ここまで連れてきた。" },
+  creator: { arrival: "{star}にも、まだ作り直せる余地がある。見てみたい。", flight: "壊れた航路にも、細い線を引けば道になる。消えやすいけど、道になる。", victory: "壊しただけじゃない。新しい道をひとつ作れた。まだ細くて、頼りない道を。" },
+  ship: { arrival: "航路確認。{star}周辺、感情反応が強く揺れています。", flight: "外殻温度低下。ですが、船内の声はまだ温かいです。航行を続けます。", victory: "戦闘終了。仲間全員の帰還を確認しました。帰還、という言葉を大切に記録します。" },
+};
+
+function fillTalkTemplate(template, star, enemy) {
+  return String(template || "")
+    .replaceAll("{star}", star?.name || "この星")
+    .replaceAll("{enemy}", enemy?.name || "敵")
+    .replaceAll("{gimmick}", star?.flightGimmickLabel || "航行");
+}
+
+function partyMembersForTalk(star, timing) {
+  const members = save.party.slice(0, 4).map(id => allyById(id)).filter(Boolean);
+  if (!members.length) return [];
+  const offset = (star.stage + (timing === "victory" ? 2 : 0)) % members.length;
+  return members.slice(offset).concat(members.slice(0, offset)).slice(0, Math.min(3, members.length));
+}
+
+function allyTalkLine(ally, text) {
+  return {
+    speaker: ally.name,
+    face: ally.face,
+    image: allyImagePath(ally),
+    text,
+  };
+}
+
+function storyTalkLine(star, speaker, text) {
+  return {
+    speaker,
+    face: star?.icon || "✦",
+    text,
+  };
+}
+
+function buildShootingTalkLines(star) {
+  const enemy = star ? ENEMIES[star.enemy] : null;
+  const story = STAGE_STORY_LINES[star?.stage] || {};
+  const lines = [];
+  if (story.flight) {
+    lines.push(storyTalkLine(star, "航行ログ", `航行ログ：${story.flight}`));
+  }
+  save.party.slice(0, 4).map(id => allyById(id)).filter(Boolean).forEach(ally => {
+    const role = ROLE_TALK_LINES[ally.role] || ROLE_TALK_LINES.balanced;
+    const template = role.flight || role.arrival || DEFAULT_CHARACTER_LINES.homeLine;
+    lines.push(allyTalkLine(ally, `${ally.name}「${fillTalkTemplate(template, star, enemy)}」`));
+  });
+  if (story.episode) {
+    lines.push(storyTalkLine(star, "星の記録", `星の記録：${story.episode}`));
+  }
+  return lines.length ? lines : SPEECH_LINES.map(text => ({ face: "🐶", text }));
+}
+
+function shootingSpeechEntry(star) {
+  const lines = buildShootingTalkLines(star);
+  const line = lines[SH.speechIdx % lines.length] || { face: "🐶", text: SPEECH_LINES[0] };
+  SH.speechIdx++;
+  return line;
+}
+
+function buildPartyTalkLines(star, timing) {
+  const enemy = ENEMIES[star.enemy];
+  const story = STAGE_STORY_LINES[star.stage] || {};
+  const storyText = timing === "victory" ? story.victory : story.arrival;
+  const lines = [];
+  if (storyText) {
+    lines.push(storyTalkLine(star, timing === "victory" ? "戦闘後ログ" : "航行ログ", storyText));
+  }
+  if (timing !== "victory" && story.episode) {
+    lines.push(storyTalkLine(star, "星の記録", story.episode));
+  }
+  partyMembersForTalk(star, timing).forEach(ally => {
+    const role = ROLE_TALK_LINES[ally.role] || ROLE_TALK_LINES.balanced;
+    const template = role[timing] || role.arrival || DEFAULT_CHARACTER_LINES.homeLine;
+    lines.push(allyTalkLine(ally, fillTalkTemplate(template, star, enemy)));
+  });
+  if (timing === "victory" && story.after) {
+    lines.push(storyTalkLine(star, "余韻", story.after));
+  }
+  return lines;
+}
+
+function playPartyTalkScene(star, timing, next, options = {}) {
+  const lines = buildPartyTalkLines(star, timing);
+  if (!lines.length) return next?.(star);
+  playTalkScene(star, lines, {
+    status: options.status || (timing === "victory" ? "戦闘後ログ / 仲間通信" : "航行ログ / 星の感想"),
+    finalLabel: options.finalLabel || (timing === "victory" ? "スカウトへ" : "先へ"),
+    next,
+  });
+}
+
 let pinoSceneStar = null;
 let pinoLineIndex = 0;
 let pinoLines = PINO_PRE_BATTLE_LINES;
+let pinoSceneNext = null;
+let pinoSceneStatus = "航行ログ / 戦闘前通信";
+let pinoSceneFinalLabel = "戦闘へ";
 
-function playPinoScene(star, lines) {
+function playTalkScene(star, lines, options = {}) {
   pinoSceneStar = star;
-  pinoLines = lines || PINO_PRE_BATTLE_LINES;
+  pinoLines = (lines || []).map(line => typeof line === "string" ? { text: line } : line);
   pinoLineIndex = 0;
+  pinoSceneNext = typeof options.next === "function" ? options.next : null;
+  pinoSceneStatus = options.status || "航行ログ / 仲間通信";
+  pinoSceneFinalLabel = options.finalLabel || "次へ";
   show("pino");
-  const face = document.getElementById("pino-face");
-  if (face) face.innerHTML = faceHTML("🤖", "characters/c1");
   renderPinoLine();
 }
 
+function playPinoScene(star, lines, next) {
+  const pino = allyById("c11") || allyById("c1");
+  const talkLines = (lines || PINO_PRE_BATTLE_LINES).map(text => ({
+    speaker: "まいごロボ・ピノ",
+    face: pino?.face || "🤖",
+    image: pino ? allyImagePath(pino) : "characters/c11",
+    text,
+  }));
+  playTalkScene(star, talkLines, {
+    status: "航行ログ / 戦闘前通信",
+    finalLabel: "戦闘へ",
+    next: next || (() => startBattle(star)),
+  });
+}
+
+function currentTalkLine() {
+  return pinoLines[pinoLineIndex] || {};
+}
+
 function renderPinoLine() {
+  const line = currentTalkLine();
+  const face = document.getElementById("pino-face");
+  if (face) face.innerHTML = line.image ? faceHTML(line.face || "✦", line.image) : (line.face || "✦");
+  const name = document.getElementById("pino-name");
+  if (name) name.textContent = line.speaker || "通信ログ";
+  const status = document.getElementById("pino-status");
+  if (status) status.textContent = pinoSceneStatus;
   const el = document.getElementById("pino-line");
-  el.textContent = pinoLines[pinoLineIndex] || "";
+  el.textContent = line.text || "";
   el.classList.remove("show");
   void el.offsetWidth;
   el.classList.add("show");
   document.querySelector('[data-action="pino-next"]').textContent =
-    pinoLineIndex >= pinoLines.length - 1 ? "戦闘へ" : "次へ";
+    pinoLineIndex >= pinoLines.length - 1 ? pinoSceneFinalLabel : "次へ";
   renderPinoBrief();
   renderPinoProgress();
 }
@@ -2708,8 +3571,11 @@ function advancePinoScene() {
 function finishPinoScene() {
   if (!pinoSceneStar) return;
   const s = pinoSceneStar;
+  const next = pinoSceneNext;
   pinoSceneStar = null;
-  startBattle(s);
+  pinoSceneNext = null;
+  if (next) next(s);
+  else startBattle(s);
 }
 
 document.querySelector("#screen-pino").addEventListener("click", (e) => {
@@ -2881,7 +3747,7 @@ function setCommands(on) {
   });
 }
 function battleItemTotal() {
-  return ["smallHeal", "allHeal", "barrierOrb"].reduce((sum, id) => sum + itemCount(id), 0);
+  return BATTLE_ITEM_IDS.reduce((sum, id) => sum + itemCount(id), 0);
 }
 function skillReadyCount() {
   return BT.party.filter(m => !m.dead && !m.skillUsed).length;
@@ -2891,7 +3757,7 @@ function renderBattleCommands(mode = "main", arg = null) {
   area.classList.toggle("item-mode", mode !== "main");
   const actor = currentBattleActor();
   if (mode === "items") {
-    area.innerHTML = ["smallHeal", "allHeal", "barrierOrb"].map(id => {
+    area.innerHTML = BATTLE_ITEM_IDS.map(id => {
       const item = ITEM_DEFS[id];
       const count = itemCount(id);
       return `<button class="btn cmd battle-item-btn" data-item="${id}" data-locked="${count > 0 ? "false" : "true"}" ${count > 0 ? "" : "disabled"}>${item.icon} ${item.name}<small>×${count}</small></button>`;
@@ -2901,7 +3767,7 @@ function renderBattleCommands(mode = "main", arg = null) {
   // スキル：まず使うキャラを選ぶ
   if (mode === "skillMembers") {
     const buttons = BT.party.map((m, i) => ({ m, i })).filter(o => !o.m.dead).map(({ m, i }) =>
-      `<button class="btn cmd skill-member-btn" data-cmd="skill-pick" data-mi="${i}">${m.face} ${m.name}<small>★${m.rarity}</small></button>`
+      `<button class="btn cmd skill-member-btn" data-cmd="skill-pick" data-mi="${i}"><span class="cmd-face">${faceHTML(m.face, allyImagePath(m))}</span>${m.name}<small>★${m.rarity}</small></button>`
     ).join("");
     area.innerHTML = buttons + `<button class="btn cmd battle-back" data-cmd="skill-back">戻る</button>`;
     return;
@@ -3226,6 +4092,18 @@ async function useBattleItem(id) {
     BT.turnLock = true; renderBattleCommands("main"); setCommands(false);
     BT.barrier++;
     log(`どうぐ「${item.name}」！ 次の被ダメージを1軽減`);
+  } else if (id === "focusCharm") {
+    consumeItem(id);
+    BT.turnLock = true; renderBattleCommands("main"); setCommands(false);
+    const mul = isFinalBossBattle ? 1.12 : 1.25;
+    BT.nextAttackMul = Math.max(BT.nextAttackMul, mul);
+    log(`どうぐ「${item.name}」！ 次の攻撃が少し強くなる`);
+  } else if (id === "coolSpray") {
+    consumeItem(id);
+    BT.turnLock = true; renderBattleCommands("main"); setCommands(false);
+    BT.enemyAtkMul = Math.min(BT.enemyAtkMul, isFinalBossBattle ? 0.95 : 0.9);
+    BT.enemyDebuffTurns = Math.max(BT.enemyDebuffTurns, 2);
+    log(`どうぐ「${item.name}」！ ${BT.enemy.name}の攻撃力を少し下げた`);
   }
   renderParty();
   await wait(BATTLE_TURN_WAIT_MS);
@@ -3268,7 +4146,11 @@ function enemyDefeated() {
   if (isFinalBossBattle) {
     log(`${BT.enemy.name}を たおした……かに見えた`);
     BT.turnLock = true; setCommands(false);
-    setTimeout(() => enterFinalPhase(), 900);
+    const wonStar = currentStar;
+    setTimeout(() => playPartyTalkScene(wonStar, "victory", () => enterFinalPhase(), {
+      status: "ラスボス撃破後 / 仲間通信",
+      finalLabel: "最終演出へ",
+    }), VICTORY_TO_SCOUT_MS);
     return;
   }
   log(`${BT.enemy.name}を たおした！`);
@@ -3278,8 +4160,9 @@ function enemyDefeated() {
   // クリア登録
   if (!save.cleared.includes(currentStar.id)) save.cleared.push(currentStar.id);
   persist();
-  // 勝利後はスカウトチャンス画面へ
-  setTimeout(() => offerScout(), VICTORY_TO_SCOUT_MS);
+  // 勝利後は仲間の会話を挟んでからスカウトチャンスへ
+  const wonStar = currentStar;
+  setTimeout(() => playPartyTalkScene(wonStar, "victory", () => offerScout()), VICTORY_TO_SCOUT_MS);
 }
 
 function partyWipe() {
@@ -3396,7 +4279,30 @@ function disposeBattleScene() {
 // テキスト＋CSSフェード＋背景変化（覚醒）でビート進行。PNGは後で差し替え可能
 // -------------------------------------------------------------
 const FINAL_SCOUT_LABELS = ["スカウト", "スカウ…", "ス…"]; // 崩れていくラベル
-const ENDING_LINE = "固定された運命に、はぐれ者たちの航路が刻まれた";
+const ENDING_LINES = [
+  "ラスボスを倒した。",
+  "銀河には、また静けさが戻った。",
+  "けれど、はぐれ団の旅は終わらない。",
+  "あの星に残った仲間も、",
+  "あの時さよならした仲間も、",
+  "みんなこの銀河のどこかで生きている。",
+];
+const ENDING_CREDITS = [
+  ["企画", "銀河はぐれ団"],
+  ["デザイン", "ChatGPT"],
+  ["プログラマー", "ChatGPT"],
+  ["シナリオ", "ChatGPT"],
+  ["キャラクター会話", "ChatGPT"],
+  ["星のエピソード", "ChatGPT"],
+  ["シューティング調整", "ChatGPT"],
+  ["ボス戦バランス", "ChatGPT"],
+  ["アイテム設計", "ChatGPT"],
+  ["オルカ号", "はぐれ団の小さな船"],
+  ["テストプレイ", "主人公と仲間たち"],
+  ["SPECIAL THANKS", "星に残った仲間たち"],
+  ["SPECIAL THANKS", "この銀河を旅したあなた"],
+  ["", "旅は、まだつづく"],
+];
 
 // 演出ビート。kind: line(セリフ) / scout(崩れ) / awaken(覚醒) / hope(希望の選択)
 const FINAL_SCRIPT = [
@@ -3496,12 +4402,57 @@ function pressFinalScout() {
   }
 }
 
+function unlockFinalAlly() {
+  const ally = allyById(SPECIAL_FINAL_ALLY_ID);
+  if (!ally) return;
+  markDiscovered(ally.id, { countEncounter: false, doPersist: false });
+  if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
+  save.finalAllyUnlocked = true;
+  const stat = dexStat(ally.id);
+  stat.scoutSuccessCount = Math.max(stat.scoutSuccessCount || 0, 1);
+  persist();
+}
+
+function endingWatcherLines() {
+  const lines = [];
+  normalizeLeftBehind(save);
+  STARS.forEach(star => {
+    leftBehindAlliesForStar(star).forEach(ally => {
+      if (lines.length < 5) lines.push(`${ally.name}は、${star.name}で空を見上げている。`);
+    });
+  });
+  if (lines.length) return lines;
+  return save.party.slice(0, 3).map(id => {
+    const ally = allyById(id);
+    return ally ? `${ally.name}は、オルカ号の窓から銀河を見ている。` : "";
+  }).filter(Boolean);
+}
+
 function goEnding() {
   finalPhase = false;
   clearTimeout(finalTimer);
+  unlockFinalAlly();
+  save.clearDataSaved = true;
+  persist();
   document.getElementById("screen-final").classList.remove("awakening");
   const lineEl = document.getElementById("ending-line");
-  if (lineEl) lineEl.textContent = `「${ENDING_LINE}」`;
+  const watcherLines = endingWatcherLines();
+  if (lineEl) {
+    lineEl.innerHTML = [
+      ...ENDING_LINES.map(line => `<span>${line}</span>`),
+      ...watcherLines.map(line => `<span class="ending-watch">${line}</span>`),
+    ].join("");
+  }
+  const subEl = document.getElementById("ending-sub");
+  if (subEl) subEl.innerHTML = `<b>CLEAR DATA SAVED</b><br>クリア後も仲間集めを続けられます`;
+  const creditsEl = document.getElementById("ending-credits");
+  if (creditsEl) {
+    creditsEl.innerHTML = ENDING_CREDITS.map(([role, name]) =>
+      role
+        ? `<div class="ending-credit-row"><span>${role}</span><b>${name}</b></div>`
+        : `<div class="ending-credit-row ending-credit-message"><b>${name}</b></div>`
+    ).join("");
+  }
   show("ending");
 }
 
@@ -3518,6 +4469,7 @@ document.querySelector("#screen-final").addEventListener("click", (e) => {
 });
 document.querySelector("#screen-ending").addEventListener("click", (e) => {
   if (e.target.closest('[data-action="ending-title"]')) show("title");
+  if (e.target.closest('[data-action="ending-continue"]')) { refreshCrystals(); show("worldmap"); }
 });
 
 // -------------------------------------------------------------
@@ -3528,8 +4480,16 @@ let scoutCandidate = null;
 
 // その星のレア度帯から候補を1体（未加入を優先）
 function pickCandidate() {
-  const pool = ALLIES.filter(a => a.rarity >= currentStar.rMin && a.rarity <= currentStar.rMax);
+  let pool = ALLIES.filter(a =>
+    a.id !== SPECIAL_FINAL_ALLY_ID &&
+    a.rarity >= currentStar.rMin &&
+    a.rarity <= currentStar.rMax
+  );
   if (pool.length === 0) return null;
+  if (currentStar?.gimmick === "rareScout") {
+    const rarePool = pool.filter(a => a.rarity >= currentStar.rMax);
+    if (rarePool.length && Math.random() < 0.65) pool = rarePool;
+  }
   const fresh = pool.filter(a => !save.recruited.includes(a.id));
   const choose = fresh.length ? fresh : pool;
   return choose[Math.floor(Math.random() * choose.length)];
@@ -3544,6 +4504,8 @@ function scoutInfo(ally) {
   let rate = r.baseRate;
   const hasBonus = stageBonus && stageBonus.type === "scoutRate";
   if (hasBonus) rate += stageBonus.boosted ? 0.08 : 0.05; // ミドリ星人で強化
+  const rareScoutBonus = currentStar?.gimmick === "rareScout";
+  if (rareScoutBonus) rate += 0.08;
   rate += synergy.effects.scoutRate;
   const beacon = itemCount("scoutBeacon") > 0;
   if (beacon) rate += 0.10;
@@ -3553,6 +4515,7 @@ function scoutInfo(ally) {
     boosted: !!hasBonus,
     beacon,
     synergyScout: synergy.effects.scoutRate,
+    rareScoutBonus,
     lowRareDiscount,
   };
 }
@@ -3584,7 +4547,7 @@ function offerScout() {
 function showScoutOffer(ally) {
   show("scout");
   document.getElementById("scout-title").textContent = "仲間候補があらわれた！";
-  const { cost, rate, boosted, beacon, synergyScout, lowRareDiscount } = scoutInfo(ally);
+  const { cost, rate, boosted, beacon, synergyScout, rareScoutBonus, lowRareDiscount } = scoutInfo(ally);
   const enough = save.crystals >= cost;
   const replaceTarget = !save.party.includes(ally.id) && save.party.length >= 4 ? allyById(save.party[save.party.length - 1]) : null;
   document.getElementById("scout-result").innerHTML = `
@@ -3595,11 +4558,12 @@ function showScoutOffer(ally) {
     <div class="cand-tag">${ally.tags.map(tag => `<span class="tag-chip">${tag}</span>`).join("")}</div>
     <div class="cand-stats">
       <div class="cand-stat"><div class="k">必要💎</div><div class="v cost ${enough ? "" : "short"}">${cost}</div></div>
-      <div class="cand-stat"><div class="k">成功率</div><div class="v rate">${Math.round(rate * 100)}%${(boosted || synergyScout) ? " ↑" : ""}</div></div>
+      <div class="cand-stat"><div class="k">成功率</div><div class="v rate">${Math.round(rate * 100)}%${(boosted || synergyScout || rareScoutBonus) ? " ↑" : ""}</div></div>
       <div class="cand-stat"><div class="k">所持💎</div><div class="v">${save.crystals}</div></div>
     </div>
     ${enough ? "" : `<div class="scout-sub" style="color:var(--danger)">クリスタルが足りない…</div>`}
     ${beacon ? `<div class="scout-sub" style="color:var(--ok)">スカウトビーコン適用中：成功率 +10%</div>` : ""}
+    ${rareScoutBonus ? `<div class="scout-sub" style="color:var(--ok)">スカウトチャンス：レア仲間と成功率アップ</div>` : ""}
     ${synergyScout ? `<div class="scout-sub" style="color:var(--ok)">はぐれものの絆：成功率 +${Math.round(synergyScout * 100)}%</div>` : ""}
     ${lowRareDiscount ? `<div class="scout-sub" style="color:var(--gold)">低レア救済：スカウト費用を割引</div>` : ""}
     ${replaceTarget ? `<div class="scout-sub scout-replace-note">成功時は4人目の ${replaceTarget.name} と入れ替え</div>` : ""}
@@ -3645,13 +4609,13 @@ function showScoutReplace(ally, cost, beacon) {
   const box = document.getElementById("scout-result");
   box.innerHTML = `
     <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
-    <div class="scout-voice ok">「${ally.voice.ok}」</div>
+    <div class="scout-voice ok">「${ally.joinLine}」</div>
     <div class="scout-msg" style="color:var(--ok)">${ally.name}（★${ally.rarity}）を 仲間にできる！</div>
-    <div class="scout-sub">誰かと別れて入れるか、図鑑にだけ残すか えらぼう（💎${cost}）</div>
+    <div class="scout-sub">誰かがこの星に残れば、${ally.name}を連れていける（💎${cost}）</div>
   `;
   const memberBtns = save.party.map((id, i) => {
     const m = allyById(id);
-    return `<button class="btn scout-replace-btn" data-action="scout-replace" data-idx="${i}">${m.face} ${m.name} とさよなら</button>`;
+    return `<button class="btn scout-replace-btn" data-action="scout-replace" data-idx="${i}"><span class="cmd-face">${faceHTML(m.face, allyImagePath(m))}</span>${m.name}をこの星に残す</button>`;
   }).join("");
   document.getElementById("scout-actions").innerHTML =
     memberBtns + `<button class="btn" data-action="scout-figure">加入せず 図鑑だけ登録</button>`;
@@ -3666,10 +4630,12 @@ function doReplace(idx) {
   if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
   markDiscovered(ally.id, { countEncounter: false, doPersist: false });
   const replaced = allyById(replacedId);
+  markAllyLeftBehind(replacedId, currentStar);
+  removeLeftBehindAlly(ally.id);
   save.party[idx] = ally.id;
   addDexStat(replacedId, "partedCount", 1); // 別れた回数を記録（図鑑には残る）
   persist();
-  showScoutResult(ally, "success", scoutPendingCost, { addedToParty: true, replaced }, scoutPendingBeacon);
+  showScoutResult(ally, "success", scoutPendingCost, { addedToParty: true, replaced, leftStar: currentStar?.name }, scoutPendingBeacon);
 }
 
 // 加入せず図鑑だけ登録（費用なし・パーティ不変）
@@ -3700,13 +4666,17 @@ function recruit(ally) {
     return result;
   }
   if (save.party.length < 4) {
+    removeLeftBehindAlly(ally.id);
     save.party.push(ally.id);
     result.addedToParty = true;
   } else {
     const replacedId = save.party[save.party.length - 1];
+    markAllyLeftBehind(replacedId, currentStar);
+    removeLeftBehindAlly(ally.id);
     save.party[save.party.length - 1] = ally.id; // 入れ替え
     result.addedToParty = true;
     result.replaced = allyById(replacedId);
+    result.leftStar = currentStar?.name;
     addDexStat(replacedId, "partedCount", 1);
   }
   return result;
@@ -3716,14 +4686,23 @@ function showScoutResult(ally, kind, cost, recruitResult = {}, beacon = false) {
   document.getElementById("scout-title").textContent = "スカウト結果";
   const box = document.getElementById("scout-result");
   if (kind === "success") {
+    const leftStar = recruitResult.leftStar || currentStar?.name || "この星";
+    const leaveHtml = recruitResult.replaced
+      ? `<div class="scout-left-behind">
+          <div>${recruitResult.replaced.name}は、この星に残ることにした。</div>
+          <div class="scout-voice bye">「${recruitResult.replaced.leaveLine}」</div>
+          <div>${recruitResult.replaced.name}は【${leftStar}】に残りました。</div>
+        </div>`
+      : "";
     const partyNote = recruitResult.replaced
-      ? `パーティ満員のため ${recruitResult.replaced.name} と入れ替え`
+      ? `${recruitResult.replaced.name}は【${leftStar}】に残った`
       : (recruitResult.alreadyInParty ? "すでにパーティにいる" : "パーティに編成");
     box.innerHTML = `
       <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
-      <div class="scout-voice ok">「${ally.voice.ok}」</div>
+      <div class="scout-voice ok">「${ally.joinLine}」</div>
       <div class="scout-msg" style="color:var(--ok)">${ally.name} が なかまになった！</div>
       <div class="scout-sub">💎${cost} 消費${beacon ? " ／ ビーコン使用" : ""} ／ 図鑑に「加入」を記録 ／ ${partyNote}</div>
+      ${leaveHtml}
     `;
   } else {
     box.innerHTML = `

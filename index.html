@@ -31,8 +31,8 @@
 
         <div class="hero-area">
           <div class="hero-compass">✦</div>
-          <!-- 将来的に assets/ships/hagure_ship.png に差し替え予定 -->
-          <div class="ship-character" aria-label="4人乗りの小型飛行船">
+          <!-- assets/characters/c60.png のシャチ型飛行船オルカ号を表示 -->
+          <div class="ship-character" aria-label="シャチ型飛行船オルカ号">
             <span class="ship-flag">🚩</span>
             <div class="ship-window">
               <span class="ship-eye">n</span><span class="ship-smile"></span><span class="ship-eye">n</span>
@@ -258,17 +258,17 @@
       </div>
     </section>
 
-    <!-- ============ ピノの戦闘前会話（ステージ1） ============ -->
+    <!-- ============ 仲間通信 / 戦闘前後会話 ============ -->
     <section id="screen-pino" class="screen">
       <div class="pino-bg"></div>
       <div class="pino-scanline"></div>
       <button class="pino-skip" data-action="pino-skip">スキップ</button>
       <div class="pino-inner">
-        <div class="pino-status">航行ログ / 戦闘前通信</div>
+        <div class="pino-status" id="pino-status">航行ログ / 戦闘前通信</div>
         <div class="pino-portrait">
           <div class="pino-face" id="pino-face">🤖</div>
         </div>
-        <div class="pino-name">まいごロボ・ピノ</div>
+        <div class="pino-name" id="pino-name">まいごロボ・ピノ</div>
         <div class="pino-brief" id="pino-brief"></div>
         <div class="pino-line" id="pino-line"></div>
         <div class="pino-progress" id="pino-progress"></div>
@@ -318,14 +318,17 @@
       </div>
     </section>
 
-    <!-- ============ エンディング（仮） ============ -->
+    <!-- ============ エンディング ============ -->
     <section id="screen-ending" class="screen">
       <div class="final-bg"></div>
       <div class="ending-inner">
         <h2 class="ending-title">― 銀河はぐれ団 ―</h2>
         <p class="ending-line" id="ending-line"></p>
-        <p class="ending-sub">（エンディング・仮）</p>
-        <button class="btn btn-primary" data-action="ending-title">タイトルへ</button>
+        <div class="ending-credits" aria-label="スタッフロール">
+          <div class="ending-credits-track" id="ending-credits"></div>
+        </div>
+        <p class="ending-sub" id="ending-sub">CLEAR DATA SAVED<br>クリア後も仲間集めを続けられます</p>
+        <button class="btn btn-primary" data-action="ending-continue">仲間集めを続ける</button>
       </div>
     </section>
 

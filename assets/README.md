@@ -18,6 +18,7 @@
 |------|-----------|----------|
 | 仲間キャラ（アイコン/図鑑） | 512×512 | `assets/characters/<id>.png` |
 | 敵 | 512×512 | `assets/enemies/<id>.png` |
+| 星 / ステージ背景 | 1536×1024 以上 | `assets/stars/<stage>.png` |
 | 飛行船 | 768×512 | `assets/ships/<name>.png` |
 | タイトル主人公 | 768×1024 | `assets/title/<name>.png` |
 | UI / シューティング素材 | 任意 | `assets/ui/` `assets/shooting/` |
@@ -29,9 +30,11 @@
 | タイトル | 背景 | `assets/backgrounds/title_space_vertical.png` |
 | タイトル | ロゴ | `assets/logo/logo_main.png` |
 | タイトル | 主人公 | `assets/title/hero_main.png` |
-| タイトル | 飛行船 | `assets/ships/ship_default.png` |
-| ワールドマップ | 飛行船 | `assets/ships/ship_default.png` |
-| RPG戦闘 / スカウト / 図鑑 | 仲間キャラ | `assets/characters/c1.png` … `c20.png`（画像実装対象） |
+| タイトル | 飛行船 | `assets/characters/c60.png` |
+| ワールドマップ | 飛行船 | `assets/characters/c60.png` |
+| シューティング | 自機オルカ号 | `assets/ships/player_hagure_airship_orca.png` |
+| ワールドマップ / 航行前 / 航行中 / 到着 | 星画像 | `assets/stars/1.png` … `assets/stars/20.png` |
+| RPG戦闘 / スカウト / 図鑑 | 仲間キャラ | `assets/characters/c1.png` … `c60.png` |
 | RPG戦闘 / ワールドマップ / 航行前 | ST1〜ST12ボス | `assets/enemies/st01_space_junk_storm.png` … `st12_false_hero_mirror.png` |
 | ラスボス戦 | ボス | `assets/enemies/final_boss.png` |
 | シューティング | 通常クリスタル | `assets/ui/crystal_normal.png` |
@@ -39,14 +42,17 @@
 | シューティング | 回復クリスタル | `assets/ui/crystal_heal.png` |
 
 > いずれも **PNGが無ければ従来のテキスト・絵文字・CSS/3D表示にフォールバック**します。
-> まずはこの一覧が差し替え対象。仲間は正式ID `c1`〜`c60`、画像実装は `c1`〜`c20` から進めます。
+> まずはこの一覧が差し替え対象。仲間は正式ID `c1`〜`c60` を使います。
 
 ## ファイル名と読み込み規則
 
 - 仲間キャラのIDは `app.js` の `ALLIES`（正式ID `c1`〜`c60`）。
   読み込みパスは **`assets/characters/<id>.png`**（例：`c1.png`, `c2.png`, `c20.png`）。
-- 現在コードで画像を有効化している仲間は `c1`〜`c20` のみです。`c21`〜`c60` はPNGが無くても絵文字フォールバックで表示します。
+- 現在コードで画像を有効化している仲間は `c1`〜`c60` です。PNGが無い場合のみ絵文字フォールバックで表示します。
 - 敵IDは `e1`〜`e20`。読み込みは `assets/enemies/<id>.png`。
+- 星画像はステージ番号をそのまま使い、読み込みは **`assets/stars/<stage>.png`** です。
+  例：1つ目の星は `assets/stars/1.png`、20個目の星は `assets/stars/20.png`。
+  画像が無いステージは、ボス画像または従来の絵文字・CSS背景にフォールバックします。
 - ST1〜ST12のボス画像は、敵IDではなく **`assets/enemies/stNN_slug.png`** 形式で管理します。
   `NN` は2桁ステージ番号、`slug` は英小文字・数字・アンダースコアの説明名です。
   例：`st01_space_junk_storm.png`, `st12_false_hero_mirror.png`。
@@ -71,7 +77,6 @@ ChatGPT等で生成 → 上記パスに配置 → リロードで反映されま
 - 画像がない場合は **絵文字・CSS表示にフォールバック**（無くても動作する）
 - **主な差し替え対象**：
   - `assets/title/hero_main.png`
-  - `assets/ships/ship_default.png`
-  - `assets/characters/c1.png`〜`assets/characters/c20.png`
-- `c21`〜`c60` の画像実装は後回し
+  - `assets/characters/c60.png`
+  - `assets/characters/c1.png`〜`assets/characters/c60.png`
 - 生成プロンプトは `docs/image_prompts.md` を参照（Claude Code 側では画像生成は行わない）

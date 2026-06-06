@@ -399,7 +399,8 @@ html, body {
   cursor: pointer;
   box-shadow: 0 8px 22px rgba(0,0,0,.16);
 }
-.party-icon { font-size: 26px; line-height: 1; }
+.party-icon { font-size: 26px; line-height: 1; display: flex; align-items: center; justify-content: center; height: 34px; }
+.party-icon img { width: 34px; height: 34px; object-fit: contain; }
 .party-name { font-size: 11px; font-weight: 800; margin-top: 4px; white-space: nowrap; }
 .party-name b { color: var(--gold); } .party-name b.pink { color: #f9a; } .party-name b.green { color: var(--ok); }
 .party-role { font-size: 9px; color: #9ab; margin-top: 2px; line-height: 1.15; }
@@ -756,6 +757,26 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 }
 .star-card:first-child .star-route { display: none; }
 .star-icon { font-size: 30px; }
+.star-thumb {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.2);
+  background: radial-gradient(circle at 50% 42%, rgba(255,255,255,.18), rgba(0,0,0,.3));
+  box-shadow: 0 6px 18px rgba(0,0,0,.24), inset 0 0 0 1px rgba(255,255,255,.06);
+  overflow: hidden;
+  font-size: 28px;
+}
+.star-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
 .star-boss-thumb {
   flex: 0 0 48px;
   width: 48px;
@@ -775,13 +796,24 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
   object-fit: contain;
   object-position: center;
 }
-.star-info { flex: 1; }
+.star-info { flex: 1; min-width: 0; }
 .star-name { font-weight: 700; font-size: 15px; }
-.star-desc { font-size: 12px; color: #9ab; }
+.star-desc { font-size: 12px; color: #9ab; overflow-wrap: anywhere; }
 .star-cat { font-size: 10px; color: var(--accent2); border: 1px solid rgba(200,160,255,.4); border-radius: 6px; padding: 0 5px; margin-right: 4px; }
 .star-theme { color: var(--star-accent, var(--accent)); font-size: 10px; font-weight: 800; margin-right: 4px; }
+.star-gimmick,
+.star-left-behind {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #c7dcff;
+  overflow-wrap: anywhere;
+}
+.star-left-behind {
+  color: #ffe49a;
+}
 .star-card.cleared .star-icon::after { content: ""; }
-.star-badge { font-size: 11px; padding: 3px 8px; border-radius: 8px; background: rgba(110,255,160,.18); color: var(--ok); }
+.star-badge { flex: 0 0 auto; font-size: 11px; padding: 3px 8px; border-radius: 8px; background: rgba(110,255,160,.18); color: var(--ok); }
 
 /* ===== シューティング（アーケードSTG風HUD） ===== */
 #shooting-canvas { position: absolute; inset: 0; width: 100%; max-width: 100%; overflow: hidden; }
@@ -881,7 +913,7 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
   background: rgba(10,16,40,.7); border: 1px solid rgba(110,180,255,.4); border-radius: 12px; padding: 5px 10px; }
 .sh-speech-face { font-size: 28px; width: 34px; height: 34px; flex: 0 0 34px; display: flex; align-items: center; justify-content: center; }
 .sh-speech-face img { width: 34px; height: 34px; object-fit: contain; }
-.sh-speech-text { flex: 1; font-size: 12px; font-weight: 700; color: #eaf6ff; }
+.sh-speech-text { flex: 1; font-size: 12px; line-height: 1.35; font-weight: 700; color: #eaf6ff; overflow-wrap: anywhere; }
 .sh-flag { font-size: 20px; opacity: .85; }
 @media (max-width: 420px) {
   .shooting-hint { display: none; }
@@ -1040,8 +1072,17 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
   overflow: hidden;
   font-size: 46px;
 }
+.preflight-boss.is-stage-art {
+  width: min(84vw, 286px);
+  height: 150px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(5,8,18,.48);
+  box-shadow: 0 10px 28px rgba(0,0,0,.36);
+}
 .preflight-boss[hidden] { display: none; }
 .preflight-boss img { width: 100%; height: 100%; object-fit: contain; }
+.preflight-boss.is-stage-art img { object-fit: cover; }
 .preflight-title { font-size: 20px; color: var(--gold); margin: 12px 0 18px; letter-spacing: .08em; }
 .preflight-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px; }
 .pf-row {
@@ -1053,6 +1094,11 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 .pf-face img { width: 34px; height: 34px; object-fit: contain; vertical-align: middle; }
 .pf-name { font-size: 13px; font-weight: 700; min-width: 84px; }
 .pf-eff { font-size: 13px; color: var(--ok); flex: 1; }
+.pf-gimmick {
+  border-color: rgba(255,220,120,.32);
+  background: rgba(42,34,12,.36);
+}
+.pf-gimmick .pf-eff { color: var(--gold); }
 .preflight-inner .btn-primary { width: 220px; }
 
 /* ===== 到着演出 ===== */
@@ -1068,7 +1114,7 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 .arrival-hint { margin-top: 40px; font-size: 12px; color: #678; animation: blink 1.5s infinite; }
 @keyframes blink { 50% { opacity: .3; } }
 
-/* ===== ピノの戦闘前会話 ===== */
+/* ===== 仲間通信 / 戦闘前後会話 ===== */
 #screen-pino {
   background: #030715;
   align-items: center;
@@ -1520,7 +1566,11 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
   .turn-owner,
   .skill-owner { min-height: 28px; padding: 4px 8px; font-size: 12px; }
   .turn-owner img,
-  .skill-owner img { width: 22px; height: 22px; }
+  .skill-owner img,
+  #battle-commands .cmd-face img,
+  .scout-replace-btn .cmd-face img { width: 22px; height: 22px; }
+  #battle-commands .cmd-face,
+  .scout-replace-btn .cmd-face { width: 24px; height: 24px; }
 }
 
 @media (max-height: 640px) {
@@ -1568,6 +1618,17 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 .scout-voice.ok { color: var(--ok); background: rgba(110,255,160,.12); }
 .scout-voice.ng { color: var(--danger); background: rgba(255,90,100,.12); }
 .scout-voice.bye { color: var(--accent); background: rgba(110,200,255,.12); }
+.scout-left-behind {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(160,180,255,.2);
+  color: #dfe8ff;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.scout-left-behind .scout-voice {
+  margin: 8px 0;
+}
 
 /* 仲間候補カード */
 .cand-name { font-size: 22px; font-weight: 700; margin-top: 10px; }
@@ -1732,10 +1793,66 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 #screen-final.awakening .final-bg { filter: brightness(2.4) drop-shadow(0 0 8px #6cf); opacity: 1; }
 
 #screen-ending { background: radial-gradient(circle at 50% 40%, #101630, #05030f); align-items: center; justify-content: center; overflow: hidden; }
-.ending-inner { position: relative; z-index: 1; text-align: center; padding: 24px; max-width: 360px; }
+.ending-inner { position: relative; z-index: 1; text-align: center; padding: 24px; max-width: 390px; width: 100%; }
 .ending-title { font-size: 26px; color: #9cf; letter-spacing: .08em; text-shadow: 0 0 24px rgba(120,160,255,.5); }
 .ending-line { font-size: 15px; font-weight: 700; color: #dfe8ff; line-height: 1.6; margin: 16px 0 10px; text-shadow: 0 0 12px rgba(120,160,255,.4); }
-.ending-sub { font-size: 12px; color: #9ab; margin: 4px 0 26px; }
+.ending-line span { display: block; }
+.ending-line .ending-watch {
+  margin-top: 8px;
+  color: #ffe49a;
+  font-size: 13px;
+}
+.ending-credits {
+  position: relative;
+  height: 150px;
+  margin: 14px auto 12px;
+  overflow: hidden;
+  border-top: 1px solid rgba(150, 210, 255, .18);
+  border-bottom: 1px solid rgba(150, 210, 255, .18);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+}
+.ending-credits-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 150px 8px 170px;
+  animation: endingCreditsRoll 30s linear infinite;
+}
+.ending-credit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  color: #aebee0;
+  text-shadow: 0 1px 6px rgba(0,0,0,.75);
+}
+.ending-credit-row span {
+  text-align: right;
+  color: #7fbfff;
+  font-weight: 800;
+}
+.ending-credit-row b {
+  color: #f2f7ff;
+  font-size: 13px;
+}
+.ending-credit-message {
+  display: block;
+  margin-top: 14px;
+  text-align: center;
+}
+.ending-credit-message b {
+  color: #ffe49a;
+  font-size: 15px;
+}
+@keyframes endingCreditsRoll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-100%); }
+}
+.ending-sub { font-size: 12px; color: #9ab; margin: 4px 0 20px; }
+.ending-sub b { color: var(--ok); letter-spacing: .08em; }
 
 /* ===== v0.9 敵の弱点/耐性・スキル選択UI ===== */
 .enemy-elem { font-size: 10px; line-height: 1.2; font-weight: 800; margin-top: 2px; text-shadow: 0 1px 3px #000; }
@@ -1762,7 +1879,11 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
   text-shadow: 0 1px 3px #000;
 }
 .turn-owner img,
-.skill-owner img { width: 26px; height: 26px; object-fit: contain; }
+.skill-owner img,
+#battle-commands .cmd-face img,
+.scout-replace-btn .cmd-face img { width: 26px; height: 26px; object-fit: contain; }
+#battle-commands .cmd-face,
+.scout-replace-btn .cmd-face { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-right: 4px; vertical-align: middle; }
 #battle-commands .skill-member-btn small,
 #battle-commands .skill-use-btn small { display: block; font-size: 9px; color: #9ab; font-weight: 700; }
 .scout-replace-btn { font-size: 13px; }
