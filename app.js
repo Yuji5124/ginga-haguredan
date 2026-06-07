@@ -1699,10 +1699,12 @@ function showPreflight(star) {
     : `<div class="pf-row"><span class="pf-eff">特別な効果なし</span></div>`;
   list.innerHTML = gimmickHtml + navHtml + renderSynergyPanel(eff.synergy);
   show("preflight");
+  const screen = document.getElementById("screen-preflight");
+  if (screen) screen.scrollTop = 0;
 }
 
 document.querySelector("#screen-preflight").addEventListener("click", (e) => {
-  if (e.target.dataset.action === "launch") {
+  if (e.target.closest('[data-action="launch"]')) {
     show("shooting");
     startShooting(currentStar);
   }
@@ -1917,7 +1919,7 @@ function createHagureOrcaSpriteTexture(img, mode = "orca") {
         if ((lum < 46 && lowSat) || (edgeEmpty && lum < 78 && max - min < 36)) data[i + 3] = 0;
         continue;
       }
-      const checkerBg = lowSat && r > 214 && g > 214 && b > 214;
+      const checkerBg = lowSat && r > 198 && g > 198 && b > 198;
       const broadShip =
         ellipse(px, py, 0.5, 0.54, 0.34, 0.48) ||
         ellipse(px, py, 0.19, 0.47, 0.13, 0.14) ||
@@ -1927,13 +1929,15 @@ function createHagureOrcaSpriteTexture(img, mode = "orca") {
         ellipse(px, py, 0.5, 0.18, 0.18, 0.2) ||
         ellipse(px, py, 0.56, 0.06, 0.16, 0.08);
       const protectedWhiteHull =
-        ellipse(px, py, 0.5, 0.77, 0.28, 0.22) ||
-        ellipse(px, py, 0.32, 0.55, 0.1, 0.18) ||
-        ellipse(px, py, 0.68, 0.55, 0.1, 0.18) ||
-        ellipse(px, py, 0.19, 0.47, 0.1, 0.1) ||
-        ellipse(px, py, 0.81, 0.47, 0.1, 0.1);
+        ellipse(px, py, 0.5, 0.12, 0.15, 0.075) ||
+        ellipse(px, py, 0.34, 0.28, 0.07, 0.16) ||
+        ellipse(px, py, 0.66, 0.28, 0.07, 0.16) ||
+        ellipse(px, py, 0.31, 0.43, 0.07, 0.12) ||
+        ellipse(px, py, 0.69, 0.43, 0.07, 0.12) ||
+        ellipse(px, py, 0.18, 0.47, 0.05, 0.06) ||
+        ellipse(px, py, 0.82, 0.47, 0.05, 0.06);
       if (checkerBg && !protectedWhiteHull) data[i + 3] = 0;
-      else if (!broadShip && lowSat && max > 170) data[i + 3] = 0;
+      else if (!broadShip && lowSat && max > 150) data[i + 3] = 0;
     }
   }
   ctx.putImageData(imageData, 0, 0);
