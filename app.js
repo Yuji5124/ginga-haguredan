@@ -4601,22 +4601,101 @@ function attemptScout() {
 
 let scoutPendingCost = 0, scoutPendingBeacon = false;
 
+const SCOUT_COMPARE_STATS = [
+  ["hp", "HP"],
+  ["atk", "攻"],
+  ["def", "防"],
+  ["spd", "速"],
+];
+
+function scoutSkillChips(ally) {
+  const keys = ally?.skills?.length ? ally.skills : [ally?.skillKey];
+  return keys.map(key => {
+    const skill = SKILLS[key];
+    if (!skill) return "";
+    const meta = skill.element || skill.desc;
+    return `<span class="compare-skill-chip"><b>${skill.name}</b><small>${meta}</small></span>`;
+  }).join("");
+}
+
+function scoutStatDiffHtml(candidate, current, key) {
+  const delta = (candidate?.[key] || 0) - (current?.[key] || 0);
+  const cls = delta > 0 ? "up" : (delta < 0 ? "down" : "same");
+  const text = delta > 0 ? `+${delta}` : (delta < 0 ? String(delta) : "±0");
+  return `<span class="compare-delta ${cls}">${text}</span>`;
+}
+
+function renderScoutCompareCard(candidate, current, idx) {
+  const statRows = SCOUT_COMPARE_STATS.map(([key, label]) => `
+    <div class="compare-stat-row">
+      <span class="compare-stat-label">${label}</span>
+      <span class="compare-stat-new">${candidate[key]}</span>
+      ${scoutStatDiffHtml(candidate, current, key)}
+      <span class="compare-stat-old">${current[key]}</span>
+    </div>`).join("");
+  return `
+    <div class="scout-compare-card">
+      <div class="compare-head">
+        <div class="compare-person new">
+          <span class="compare-face">${faceHTML(candidate.face, allyImagePath(candidate))}</span>
+          <span><b>${candidate.name}</b><small>候補 / ★${candidate.rarity} / ${candidate.roleLabel}</small></span>
+        </div>
+        <div class="compare-vs">VS</div>
+        <div class="compare-person old">
+          <span class="compare-face">${faceHTML(current.face, allyImagePath(current))}</span>
+          <span><b>${current.name}</b><small>現在 / ★${current.rarity} / ${current.roleLabel}</small></span>
+        </div>
+      </div>
+      <div class="compare-stat-grid">
+        <div class="compare-stat-caption"><span>候補</span><span>差</span><span>現在</span></div>
+        ${statRows}
+      </div>
+      <div class="compare-skill-grid">
+        <div class="compare-skill-side">
+          <div class="compare-skill-title">候補スキル</div>
+          ${scoutSkillChips(candidate)}
+        </div>
+        <div class="compare-skill-side">
+          <div class="compare-skill-title">現メンバースキル</div>
+          ${scoutSkillChips(current)}
+        </div>
+      </div>
+      <div class="compare-passive">
+        <span>候補特性：${candidate.passive?.label || "なし"}</span>
+        <span>現在特性：${current.passive?.label || "なし"}</span>
+      </div>
+      <button class="btn scout-replace-btn scout-compare-replace" data-action="scout-replace" data-idx="${idx}">
+        <span class="cmd-face">${faceHTML(current.face, allyImagePath(current))}</span>${current.name}をこの星に残す
+      </button>
+    </div>`;
+}
+
+function renderScoutComparison(candidate) {
+  const cards = save.party.map((id, i) => {
+    const current = allyById(id);
+    return current ? renderScoutCompareCard(candidate, current, i) : "";
+  }).join("");
+  return `
+    <div class="scout-compare">
+      <div class="scout-compare-title">加入候補と現メンバー比較</div>
+      <div class="scout-compare-note">数値は「候補 − 現在」。プラスは候補が高い能力です。</div>
+      ${cards}
+    </div>`;
+}
+
 // パーティ満員時：新メンバーと現4人を見せ、誰と別れるか / 図鑑だけかを選ばせる
 function showScoutReplace(ally, cost, beacon) {
   document.getElementById("scout-title").textContent = "パーティが満員！";
   const box = document.getElementById("scout-result");
   box.innerHTML = `
-    <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
+    <div class="scout-face scout-face-compact">${faceHTML(ally.face, allyImagePath(ally))}</div>
     <div class="scout-voice ok">「${ally.joinLine}」</div>
     <div class="scout-msg" style="color:var(--ok)">${ally.name}（★${ally.rarity}）を 仲間にできる！</div>
     <div class="scout-sub">誰かがこの星に残れば、${ally.name}を連れていける（💎${cost}）</div>
+    ${renderScoutComparison(ally)}
   `;
-  const memberBtns = save.party.map((id, i) => {
-    const m = allyById(id);
-    return `<button class="btn scout-replace-btn" data-action="scout-replace" data-idx="${i}"><span class="cmd-face">${faceHTML(m.face, allyImagePath(m))}</span>${m.name}をこの星に残す</button>`;
-  }).join("");
   document.getElementById("scout-actions").innerHTML =
-    memberBtns + `<button class="btn" data-action="scout-figure">加入せず 図鑑だけ登録</button>`;
+    `<button class="btn" data-action="scout-figure">加入せず 図鑑だけ登録</button>`;
 }
 
 // 指定スロットの仲間と別れて加入
