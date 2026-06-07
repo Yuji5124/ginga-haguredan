@@ -4544,10 +4544,12 @@ function offerScout() {
 // スカウト画面：候補情報＋[スカウトする][スルーする]
 function showScoutOffer(ally) {
   show("scout");
+  resetScoutPending();
   document.getElementById("scout-title").textContent = "仲間候補があらわれた！";
   const { cost, rate, boosted, beacon, synergyScout, rareScoutBonus, lowRareDiscount } = scoutInfo(ally);
   const enough = save.crystals >= cost;
-  const replaceTarget = !save.party.includes(ally.id) && save.party.length >= 4 ? allyById(save.party[save.party.length - 1]) : null;
+  const activeParty = save.party.slice(0, SCOUT_PARTY_LIMIT);
+  const replaceTarget = !activeParty.includes(ally.id) && activeParty.length >= SCOUT_PARTY_LIMIT ? allyById(activeParty[activeParty.length - 1]) : null;
   document.getElementById("scout-result").innerHTML = `
     <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
     <div class="cand-name">${ally.name}</div>
@@ -4580,14 +4582,15 @@ function attemptScout() {
   if (save.crystals < cost) return; // 念のため
   if (beacon) consumeItem("scoutBeacon");
   if (Math.random() < rate) {
-    addDexStat(ally.id, "scoutSuccessCount", 1);
+    const activeParty = save.party.slice(0, SCOUT_PARTY_LIMIT);
     // パーティ満員かつ未加入なら、入れ替え選択画面へ
-    if (!save.party.includes(ally.id) && save.party.length >= 4) {
-      scoutPendingCost = cost; scoutPendingBeacon = beacon;
+    if (!activeParty.includes(ally.id) && activeParty.length >= SCOUT_PARTY_LIMIT) {
+      scoutPendingCost = cost; scoutPendingBeacon = beacon; scoutPendingResolved = false;
       persist();
       showScoutReplace(ally, cost, beacon);
       return;
     }
+    addDexStat(ally.id, "scoutSuccessCount", 1);
     save.crystals -= cost;          // 成功時のみ消費
     const recruitResult = recruit(ally); // パーティ加入＋「加入済み」記録
     showScoutResult(ally, "success", cost, recruitResult, beacon);
@@ -4599,7 +4602,14 @@ function attemptScout() {
   persist();
 }
 
-let scoutPendingCost = 0, scoutPendingBeacon = false;
+const SCOUT_PARTY_LIMIT = 4;
+let scoutPendingCost = 0, scoutPendingBeacon = false, scoutPendingResolved = false;
+
+function resetScoutPending() {
+  scoutPendingCost = 0;
+  scoutPendingBeacon = false;
+  scoutPendingResolved = false;
+}
 
 const SCOUT_COMPARE_STATS = [
   ["hp", "HP"],
@@ -4671,7 +4681,7 @@ function renderScoutCompareCard(candidate, current, idx) {
 }
 
 function renderScoutComparison(candidate) {
-  const cards = save.party.map((id, i) => {
+  const cards = save.party.slice(0, SCOUT_PARTY_LIMIT).map((id, i) => {
     const current = allyById(id);
     return current ? renderScoutCompareCard(candidate, current, i) : "";
   }).join("");
@@ -4683,8 +4693,9 @@ function renderScoutComparison(candidate) {
     </div>`;
 }
 
-// パーティ満員時：新メンバーと現4人を見せ、誰と別れるか / 図鑑だけかを選ばせる
+// パーティ満員時：新メンバーと現4人を見せ、誰と別れるか / 見送るかを選ばせる
 function showScoutReplace(ally, cost, beacon) {
+  scoutPendingResolved = false;
   document.getElementById("scout-title").textContent = "パーティが満員！";
   const box = document.getElementById("scout-result");
   box.innerHTML = `
@@ -4695,45 +4706,65 @@ function showScoutReplace(ally, cost, beacon) {
     ${renderScoutComparison(ally)}
   `;
   document.getElementById("scout-actions").innerHTML =
-    `<button class="btn" data-action="scout-figure">加入せず 図鑑だけ登録</button>`;
+    `<button class="btn" data-action="scout-figure">仲間にせず さよなら</button>`;
 }
 
 // 指定スロットの仲間と別れて加入
 function doReplace(idx) {
+  if (scoutPendingResolved) return;
   const ally = scoutCandidate;
-  const replacedId = save.party[idx];
-  if (!ally || replacedId == null) return;
-  save.crystals -= scoutPendingCost;
+  const slot = Number(idx);
+  if (!ally || !Number.isInteger(slot) || slot < 0 || slot >= Math.min(save.party.length, SCOUT_PARTY_LIMIT)) return;
+  const replacedId = save.party[slot];
+  if (!replacedId || replacedId === ally.id) return;
+  if (save.crystals < scoutPendingCost) {
+    toast("クリスタルが足りない…");
+    return;
+  }
+  scoutPendingResolved = true;
+  document.querySelectorAll('[data-action="scout-replace"], [data-action="scout-figure"]').forEach(btn => { btn.disabled = true; });
+  const cost = scoutPendingCost;
+  const beacon = scoutPendingBeacon;
+  save.crystals -= cost;
   if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
   markDiscovered(ally.id, { countEncounter: false, doPersist: false });
   const replaced = allyById(replacedId);
   markAllyLeftBehind(replacedId, currentStar);
   removeLeftBehindAlly(ally.id);
-  save.party[idx] = ally.id;
+  save.party[slot] = ally.id;
+  addDexStat(ally.id, "scoutSuccessCount", 1);
   addDexStat(replacedId, "partedCount", 1); // 別れた回数を記録（図鑑には残る）
   persist();
-  showScoutResult(ally, "success", scoutPendingCost, { addedToParty: true, replaced, leftStar: currentStar?.name }, scoutPendingBeacon);
+  resetScoutPending();
+  scoutCandidate = null;
+  showScoutResult(ally, "success", cost, { addedToParty: true, replaced, leftStar: currentStar?.name }, beacon);
 }
 
-// 加入せず図鑑だけ登録（費用なし・パーティ不変）
+// 加入せず見送る（費用なし・パーティ不変）
 function doFigureOnly() {
+  if (scoutPendingResolved) return;
   const ally = scoutCandidate;
   if (!ally) return;
-  if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
+  scoutPendingResolved = true;
+  document.querySelectorAll('[data-action="scout-replace"], [data-action="scout-figure"]').forEach(btn => { btn.disabled = true; });
+  const beaconUsed = scoutPendingBeacon;
   markDiscovered(ally.id, { countEncounter: false, doPersist: false });
+  addDexStat(ally.id, "skipCount", 1);
   persist();
-  document.getElementById("scout-title").textContent = "図鑑に登録";
+  resetScoutPending();
+  scoutCandidate = null;
+  document.getElementById("scout-title").textContent = "さよなら";
   document.getElementById("scout-result").innerHTML = `
     <div class="scout-face">${faceHTML(ally.face, allyImagePath(ally))}</div>
     <div class="scout-voice bye">「${ally.voice.bye}」</div>
-    <div class="scout-msg">${ally.name} は 図鑑にだけ 記録された</div>
-    <div class="scout-sub">パーティはそのまま（クリスタルは消費していない）</div>
+    <div class="scout-msg">${ally.name} とは ここでさよならした</div>
+    <div class="scout-sub">パーティはそのまま（クリスタルは消費していない${beaconUsed ? " ／ ビーコンは判定で使用済み" : ""}）</div>
   `;
   document.getElementById("scout-actions").innerHTML =
     `<button class="btn btn-primary" data-action="scout-continue">つづける</button>`;
 }
 
-// パーティ加入（4人を超える場合は末尾と入れ替え）
+// パーティ加入（4人を超える場合は4枠目と入れ替え）
 function recruit(ally) {
   const result = { addedToParty: false, alreadyInParty: false, replaced: null };
   if (!save.recruited.includes(ally.id)) save.recruited.push(ally.id);
@@ -4742,15 +4773,16 @@ function recruit(ally) {
     result.alreadyInParty = true;
     return result;
   }
-  if (save.party.length < 4) {
+  if (save.party.length < SCOUT_PARTY_LIMIT) {
     removeLeftBehindAlly(ally.id);
     save.party.push(ally.id);
     result.addedToParty = true;
   } else {
-    const replacedId = save.party[save.party.length - 1];
+    const replaceSlot = SCOUT_PARTY_LIMIT - 1;
+    const replacedId = save.party[replaceSlot];
     markAllyLeftBehind(replacedId, currentStar);
     removeLeftBehindAlly(ally.id);
-    save.party[save.party.length - 1] = ally.id; // 入れ替え
+    save.party[replaceSlot] = ally.id; // 入れ替え
     result.addedToParty = true;
     result.replaced = allyById(replacedId);
     result.leftStar = currentStar?.name;
@@ -4789,6 +4821,8 @@ function showScoutResult(ally, kind, cost, recruitResult = {}, beacon = false) {
       <div class="scout-sub">${ally.name} は 去っていった${beacon ? "（ビーコン使用）" : ""}（図鑑には「発見」を記録）</div>
     `;
   }
+  resetScoutPending();
+  scoutCandidate = null;
   document.getElementById("scout-actions").innerHTML =
     `<button class="btn btn-primary" data-action="scout-continue">つづける</button>`;
 }
@@ -4799,6 +4833,8 @@ function skipScout(ally) {
     addDexStat(ally.id, "skipCount", 1);
     persist();
   }
+  resetScoutPending();
+  scoutCandidate = null;
   document.getElementById("scout-title").textContent = "スルー";
   document.getElementById("scout-result").innerHTML = `
     <div class="scout-face">${ally ? faceHTML(ally.face, allyImagePath(ally)) : "👋"}</div>
@@ -4813,9 +4849,10 @@ function skipScout(ally) {
 document.querySelector("#screen-scout").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
+  if (btn.disabled) return;
   const a = btn.dataset.action;
-  if (a === "scout-do") attemptScout();
-  else if (a === "scout-skip") skipScout(scoutCandidate);
+  if (a === "scout-do") { btn.disabled = true; attemptScout(); }
+  else if (a === "scout-skip") { btn.disabled = true; skipScout(scoutCandidate); }
   else if (a === "scout-replace") doReplace(Number(btn.dataset.idx));
   else if (a === "scout-figure") doFigureOnly();
   else if (a === "scout-continue") { refreshCrystals(); show("worldmap"); }
