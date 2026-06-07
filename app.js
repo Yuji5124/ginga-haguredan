@@ -176,6 +176,8 @@ function createThreeFallback() {
 const TOTAL_CHARACTERS = 60;
 const ALLY_IMAGE_IMPLEMENTED_COUNT = TOTAL_CHARACTERS;
 const FINAL_BOSS_UNLOCK_COUNT = 50;
+const FIRST_MAJOR_BOSS_STAGE = 10;
+const FINAL_BOSS_STAGE = 20;
 const SPECIAL_FINAL_ALLY_ID = "c60";
 const HAGURE_ORCA_ASSET = "characters/c60";
 const PLAYER_SHOOTING_SHIP_ASSET = "ships/player_hagure_airship_orca";
@@ -561,18 +563,9 @@ const BOSS_IMAGE_BY_STAGE = {
 };
 
 const BOSS_ULTIMATE_PLAN = [
-  { stage: 1,  bossName: "宇宙海賊キャプテン・ザバ",       name: "ギャラクシーキャノン" },
-  { stage: 2,  bossName: "サビつき巨兵ゴルドン",           name: "アイアンフォール" },
-  { stage: 3,  bossName: "偽りの勇者ミラー",               name: "ヒーローコピー" },
-  { stage: 4,  bossName: "星屑魔導師ネブラ",               name: "メテオレイン" },
-  { stage: 5,  bossName: "深海惑星の主アビス",             name: "アビスウェーブ" },
-  { stage: 6,  bossName: "反転王リバース",                 name: "リバースワールド" },
-  { stage: 7,  bossName: "星盗賊クロウ",                   name: "スターリーパー" },
-  { stage: 8,  bossName: "機械獣ギガファング",             name: "ギガクラッシュ" },
-  { stage: 9,  bossName: "夢喰いバクーン",                 name: "ドリームイーター" },
-  { stage: 10, bossName: "古代衛星アーク",                 name: "アークジャッジ" },
-  { stage: 11, bossName: "AI司祭エクレア",                 name: "ロストプロトコル" },
-  { stage: 12, bossName: "偽神デウス",                     name: "ゴッドエラー" },
+  { stage: 10, bossName: "宇宙海賊キャプテン・ザバ",       name: "ギャラクシーキャノン" },
+  { stage: 11, bossName: "サビつき巨兵ゴルドン",           name: "アイアンフォール" },
+  { stage: 12, bossName: "偽りの勇者ミラー",               name: "ヒーローコピー" },
   { stage: 13, bossName: "運命管理AIラックレス",           name: "運命最適化" },
   { stage: 14, bossName: "星喰い幼獣グラトン",             name: "スターデヴォア" },
   { stage: 15, bossName: "銀河裁判官ジャッジム",           name: "不要判定" },
@@ -667,7 +660,8 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   const bossImage = BOSS_IMAGE_BY_STAGE[stage] || null;
   const bossImagePath = bossImage ? `assets/${bossImage}.png` : null;
   const ultimate = bossUltimateForName(eName);
-  const boss = stage === 20;
+  const boss = stage === FINAL_BOSS_STAGE;
+  const majorBoss = stage === FIRST_MAJOR_BOSS_STAGE || boss;
   // 各仲間が2スキルから選べる分、序盤は練習しやすく、終盤は少し粘る調整。
   const battleScale = stage <= 6 ? 0.92 : (stage <= 12 ? 1.0 : 1.08);
   const hp = Math.round((18 + stage * 10 + stage * stage * 2.6) * battleScale * (boss ? 1.68 : 1));
@@ -696,8 +690,8 @@ RAW_STAGES.forEach(([stage, sName, sIcon, eName, eFace, cat, gim]) => {
   };
   const wr = WR[cat] || { weak: "物理", resist: "氷" };
   const elevel = Math.ceil(stage / 2); // 2ステージごとに敵Lv+1（表示は控えめ）
-  ENEMIES[eid] = { name: eName, face: eFace, img: eid, image: bossImage, imagePath: bossImagePath, ultimate, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss, weak: wr.weak, resist: wr.resist, level: elevel };
-  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, image: starImage, imagePath: starImagePath, enemyImage: bossImage, enemyImagePath: bossImagePath, enemyUltimate: ultimate, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, stage, theme, danger, recommend, gimmick, flightGimmickLabel: flightGimmick.label, flightGimmickDesc: flightGimmick.desc });
+  ENEMIES[eid] = { name: eName, face: eFace, img: eid, image: bossImage, imagePath: bossImagePath, ultimate, hp, atk, cat: ENEM_CAT[cat], catKey: cat, gimmick: gim, boss, majorBoss, weak: wr.weak, resist: wr.resist, level: elevel };
+  STARS.push({ id, name: sName, icon: sIcon, desc: gim, enemy: eid, image: starImage, imagePath: starImagePath, enemyImage: bossImage, enemyImagePath: bossImagePath, enemyUltimate: ultimate, reward, rMin, rMax, cat: ENEM_CAT[cat], catKey: cat, boss, majorBoss, stage, theme, danger, recommend, gimmick, flightGimmickLabel: flightGimmick.label, flightGimmickDesc: flightGimmick.desc });
 });
 
 // ラスボスの登場セリフ
@@ -1157,8 +1151,8 @@ function setStarterPartyImages() {
 // 各画面の装飾PNGを反映（PNGが無ければ何もしない＝従来表示）
 function applyAssetImages() {
   setBgImage(".title-bg", "backgrounds/title_space_vertical");
-  // ロゴは仕様の logo/ を優先、無ければ title/ も試す
-  setSlotImage(".game-logo", ["logo/logo_main", "title/logo_main"]);
+  // ロゴは現行仕様の title/ を優先し、古い logo/ は予備として扱う
+  setSlotImage(".game-logo", ["title/logo_main", "logo/logo_main"]);
   setSlotImage(".ship-character", HAGURE_ORCA_ASSET);
   setSlotImage(".weak-hero", "title/hero_main");
   setSlotImage(".wm-ship", HAGURE_ORCA_ASSET);
@@ -1644,7 +1638,7 @@ function renderStarList() {
       <div class="star-route"></div>
       ${iconHtml}
       <div class="star-info">
-        <div class="star-name">${star.boss ? "👑 " : ""}${star.stage}. ${star.name}</div>
+        <div class="star-name">${star.boss ? "👑 " : (star.majorBoss ? "⚓ " : "")}${star.stage}. ${star.name}</div>
         <div class="star-desc">${descHtml}</div>
         ${recoHtml}
         ${flightGimmickHtml}
@@ -2331,7 +2325,7 @@ function setupStageFlightBackground(star) {
   points.userData = { type: "themeParticles", speed: 1.2 };
   SH.stageBg.add(points);
 
-  const propCount = star.boss ? 18 : 8 + (star.stage % 4);
+  const propCount = star.majorBoss ? 18 : 8 + (star.stage % 4);
   for (let i = 0; i < propCount; i++) SH.stageBg.add(makeThemeProp(theme, i));
 }
 
@@ -3192,7 +3186,7 @@ function playArrival(star) {
     "目的地に到着！",
     `${star.name} に降下します…`,
     "敵影を確認！",
-    `${star.boss ? "【ボス】" : ""}${enemy.name} が あらわれた！`,
+    `${star.majorBoss ? "【ボス】" : ""}${enemy.name} が あらわれた！`,
   ];
   const el = document.getElementById("arrival-msg");
   let i = 0;
@@ -3650,15 +3644,15 @@ function startBattle(star) {
     elemEl.innerHTML = `<span class="ew-lv">Lv.${def.level}</span>　<span class="ew-weak">弱点：${def.weak}</span>　<span class="ew-resist">耐性：${def.resist}</span>${ultimateHtml}`;
   }
   const badge = document.getElementById("enemy-badge");
-  badge.textContent = def.boss ? "★ B O S S ★" : "";
+  badge.textContent = def.boss ? "★ FINAL BOSS ★" : (def.majorBoss ? "★ B O S S ★" : "");
   const battleEnemyEl = document.getElementById("battle-enemy");
-  battleEnemyEl.classList.toggle("is-boss", !!def.boss);
+  battleEnemyEl.classList.toggle("is-boss", !!def.majorBoss);
   battleEnemyEl.classList.toggle("has-enemy-image", !!def.image);
   setEnemyHpBar();
 
   renderParty();
   clearLog();
-  log(`${def.boss ? "【ボス】" : ""}${def.name} が あらわれた！`);
+  log(`${def.majorBoss ? "【ボス】" : ""}${def.name} が あらわれた！`);
   if (def.boss) log(`「${BOSS_QUOTE}」`);
   log(`〔${def.cat}〕${def.gimmick}`); // 系統とギミックを提示
   // ボーナス反映の告知
@@ -4231,7 +4225,7 @@ function updateBattleSceneEnemy(enemy) {
   if (!BS.aura) return;
   const byCat = { bio: 0x66ff99, robo: 0x66ccff, villain: 0xff8a4a, concept: 0xc266ff };
   BS.aura.material.color.setHex((enemy && byCat[enemy.catKey]) || 0xff66cc);
-  BS.auraBase = enemy && enemy.boss ? 2.35 : 1.15;
+  BS.auraBase = enemy && enemy.majorBoss ? 2.35 : 1.15;
   BS.aura.scale.setScalar(BS.auraBase);
 }
 
@@ -4841,7 +4835,7 @@ window.GAME = {
   synergy: () => computeSynergies(save.party),
   dexStats: () => { ensureDexStats(save); return save.dexStats; },
   addDexStat: (id, key, amount = 1) => { const stat = addDexStat(id, key, amount); persist(); return stat; },
-  constants: { TOTAL_CHARACTERS, ALLY_IMAGE_IMPLEMENTED_COUNT, FINAL_BOSS_UNLOCK_COUNT },
+  constants: { TOTAL_CHARACTERS, ALLY_IMAGE_IMPLEMENTED_COUNT, FINAL_BOSS_UNLOCK_COUNT, FIRST_MAJOR_BOSS_STAGE, FINAL_BOSS_STAGE },
   get heroes() { return heroCount(); },                 // 現在の仲間収集数（c1〜c60）
   heroNeeded: () => Math.max(0, FINAL_BOSS_UNLOCK_COUNT - heroCount()),
   // デバッグ：No.1〜n を図鑑「発見済み」に登録（ラスボスゲート確認用）

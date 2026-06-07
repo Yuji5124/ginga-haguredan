@@ -101,7 +101,19 @@ html, body {
 /* ===== タイトル ===== */
 #screen-title {
   overflow: hidden;
-  background: #05030f;
+  background: #030612;
+  isolation: isolate;
+}
+#screen-title::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 4, 14, .82) 0%, rgba(2, 4, 14, .28) 24%, rgba(2, 4, 14, .18) 58%, rgba(2, 4, 14, .76) 100%),
+    linear-gradient(90deg, rgba(1, 9, 20, .54), transparent 22% 78%, rgba(1, 9, 20, .44));
+  mix-blend-mode: normal;
 }
 .title-bg {
   position: absolute;
@@ -173,7 +185,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: max(62px, env(safe-area-inset-top) + 48px) 16px max(18px, env(safe-area-inset-bottom) + 10px);
+  padding: max(58px, env(safe-area-inset-top) + 46px) 14px max(18px, env(safe-area-inset-bottom) + 10px);
   text-align: center;
   overflow-x: hidden;
   overflow-y: auto;
@@ -184,9 +196,11 @@ html, body {
   line-height: 1.04;
   letter-spacing: 0;
   color: #f8fbff;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .55));
   text-shadow:
-    0 3px 0 #24466e,
-    0 0 18px rgba(97, 208, 255, .72);
+    0 3px 0 #173958,
+    0 0 18px rgba(97, 208, 255, .78),
+    0 0 34px rgba(255, 221, 102, .18);
 }
 
 /* 上部コーナー */
@@ -206,13 +220,15 @@ html, body {
   align-items: center;
   gap: 5px;
   min-height: 34px;
-  border: 1px solid rgba(160,180,255,.28);
+  border: 1px solid rgba(176,214,255,.34);
   border-radius: 8px;
-  background: rgba(18,14,40,.62);
+  background: rgba(3,12,28,.56);
   color: #dbe8ff;
   padding: 6px 10px;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  box-shadow: 0 10px 26px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.08);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 .mini-button .tc-icon { font-size: 17px; line-height: 1; }
 .mini-button small { font-size: 10px; color: #b9caff; font-weight: 800; }
@@ -229,10 +245,31 @@ html, body {
   height: 268px;
   margin: 16px auto 10px;
 }
+.hero-area::before {
+  content: "";
+  position: absolute;
+  inset: 24px 22px 18px;
+  border: 1px solid rgba(126, 218, 255, .26);
+  border-radius: 50%;
+  transform: rotate(-7deg) skewX(-14deg);
+  box-shadow: 0 0 28px rgba(126, 218, 255, .14);
+  opacity: .82;
+}
+.hero-area::after {
+  content: "";
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  bottom: 4px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(126,218,255,.62), rgba(255,221,102,.48), transparent);
+  box-shadow: 0 0 16px rgba(126,218,255,.34);
+}
 .hero-compass {
   position: absolute;
   left: 50%;
   top: 0;
+  z-index: 1;
   font-size: 31px;
   color: #ffd84a;
   text-shadow: 0 0 20px rgba(255,216,74,.72);
@@ -242,6 +279,7 @@ html, body {
 @keyframes spinSlow { to { transform: rotate(360deg); } }
 .ship-character {
   position: absolute;
+  z-index: 2;
   left: 8px;
   bottom: 22px;
   width: 190px;
@@ -319,6 +357,7 @@ html, body {
 }
 .weak-hero {
   position: absolute;
+  z-index: 2;
   right: 42px;
   bottom: 16px;
   width: 54px;
@@ -382,30 +421,48 @@ html, body {
 
 /* 仲間紹介 */
 .scout-message {
-  font-size: 12px; font-weight: 700; color: #cdd6ff; margin: 2px 0 8px;
-  background: rgba(120,90,255,.18); border: 1px solid rgba(160,140,255,.4);
-  border-radius: 999px; padding: 5px 14px;
+  font-size: 12px; font-weight: 800; color: #e6edff; margin: 2px 0 8px;
+  background: rgba(2,12,28,.56); border: 1px solid rgba(126,218,255,.26);
+  border-radius: 8px; padding: 6px 12px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 .starter-party { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; width: 100%; max-width: 360px; margin-bottom: 12px; }
 .party-card {
   min-width: 0;
   min-height: 76px;
-  border: 1px solid rgba(160,180,255,.28);
+  border: 1px solid rgba(126,218,255,.24);
   border-radius: 8px;
-  background: rgba(10,20,45,.72);
+  background: linear-gradient(180deg, rgba(5,20,40,.72), rgba(3,10,26,.54));
   color: #fff;
   padding: 7px 4px;
   text-align: center;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(0,0,0,.16);
+  box-shadow: 0 8px 22px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
+  -webkit-backdrop-filter: blur(9px);
+  backdrop-filter: blur(9px);
 }
 .party-icon { font-size: 26px; line-height: 1; display: flex; align-items: center; justify-content: center; height: 34px; }
 .party-icon img { width: 34px; height: 34px; object-fit: contain; }
 .party-name { font-size: 11px; font-weight: 800; margin-top: 4px; white-space: nowrap; }
 .party-name b { color: var(--gold); } .party-name b.pink { color: #f9a; } .party-name b.green { color: var(--ok); }
-.party-role { font-size: 9px; color: #9ab; margin-top: 2px; line-height: 1.15; }
+.party-role { font-size: 9px; color: #b3c4d9; margin-top: 2px; line-height: 1.15; }
 
-.main-actions { display: flex; flex-direction: column; gap: 9px; width: 100%; max-width: 320px; }
+.main-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  max-width: 320px;
+  padding: 8px;
+  border: 1px solid rgba(126,218,255,.24);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(2,12,28,.7), rgba(2,6,18,.54));
+  box-shadow: 0 16px 34px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.06);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
 .primary-button {
   width: 100%;
   min-height: 62px;
@@ -413,9 +470,11 @@ html, body {
   border-radius: 8px;
   font-size: 1.55rem;
   font-weight: 900;
-  color: #241600;
-  background: linear-gradient(180deg, #ffe07a, #f2a91f);
-  box-shadow: 0 8px 0 #9f6b11, 0 0 24px rgba(255,213,75,.38);
+  color: #071526;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.42), transparent 42%),
+    linear-gradient(135deg, #7ee8ff 0%, #ffe071 54%, #ffb03c 100%);
+  box-shadow: 0 7px 0 #805d13, 0 0 26px rgba(126,218,255,.26), 0 0 34px rgba(255,213,75,.34);
   animation: startGlow 2.2s ease-in-out infinite alternate;
 }
 @keyframes startGlow { from { filter: brightness(1); } to { filter: brightness(1.08); } }
@@ -423,28 +482,40 @@ html, body {
   width: 100%;
   min-height: 50px;
   border-radius: 8px;
-  background: rgba(15,35,70,.9);
+  background: rgba(4,18,42,.72);
   color: #eaf5ff;
-  border: 1px solid rgba(118,205,255,.7);
+  border: 1px solid rgba(118,205,255,.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
 body:not(.has-save) #continue-game-btn { opacity: .62; }
 .title-menu { width: 100%; max-width: 320px; margin-top: 8px; }
 .title-subrow { display: flex; gap: 8px; }
-.menu-button { flex: 1; min-height: 42px; border-radius: 8px; font-size: 13px; padding: 10px 6px; }
+.menu-button {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 10px 6px;
+  background: rgba(4,18,42,.58);
+  border-color: rgba(126,218,255,.24);
+  box-shadow: 0 8px 18px rgba(0,0,0,.22);
+}
 
 /* 冒険の流れ */
 .adventure-flow {
   width: 100%; max-width: 360px; margin-top: 12px;
-  border: 1px solid rgba(160,180,255,.25); border-radius: 8px; padding: 8px 10px 10px;
-  background: rgba(10,8,24,.5);
+  border-top: 1px solid rgba(126,218,255,.2);
+  border-radius: 0;
+  padding: 9px 0 2px;
+  background: none;
 }
-.flow-title { font-size: 12px; font-weight: 700; color: #cdd6ff; letter-spacing: 0; }
+.flow-title { font-size: 12px; font-weight: 800; color: #e6edff; letter-spacing: 0; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
 .flow-steps { display: flex; align-items: center; justify-content: center; gap: 2px; margin-top: 6px; }
 .flow-step { display: flex; flex-direction: column; align-items: center; font-size: 22px; }
-.flow-step small { font-size: 9px; color: #9ab; margin-top: 2px; }
+.flow-step small { font-size: 9px; color: #c4d2e6; margin-top: 2px; text-shadow: 0 2px 7px rgba(0,0,0,.82); }
 .flow-arrow { color: #6cf; font-size: 14px; }
 
-.title-footer { position: absolute; left: 10px; bottom: 8px; z-index: 4; font-size: 11px; color: #60718f; }
+.title-footer { position: absolute; left: 10px; bottom: 8px; z-index: 4; font-size: 11px; color: #8aa3c2; text-shadow: 0 2px 8px rgba(0,0,0,.75); }
 
 @media (max-height: 720px) {
   .title-main { padding-top: max(50px, env(safe-area-inset-top) + 42px); }
@@ -1982,7 +2053,7 @@ body:not(.has-save) #continue-game-btn { opacity: .62; }
 .asset-img { display: none; }
 /* タイトル背景PNG */
 .title-bg.has-bg-img { background-size: cover; background-position: center; }
-.title-bg.has-bg-img .stars-layer,
+.title-bg.has-bg-img .stars-layer { opacity: .18; }
 .title-bg.has-bg-img .planet { opacity: 0; }
 /* ロゴPNG */
 .game-logo { position: relative; }
